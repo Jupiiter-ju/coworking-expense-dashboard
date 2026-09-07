@@ -422,26 +422,24 @@ function render(data, isLive) {
   // Table
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = data.map(d => {
-    const reachCount = (d.count || 0) * 2;
-    const perPerson = reachCount ? d.amount / reachCount : 0; // หารด้วยจำนวนผู้ใช้งานทั้งหมด
+    const usageCount = d.usageCount; // จำนวนการใช้งานจริงจากข้อมูล booking รายเดือน (undefined ถ้าไม่มีข้อมูล)
+    const perPerson = usageCount ? d.amount / usageCount : null;
     return `
     <tr class="hover:bg-[#F6F4EE]">
       <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal-soft);">${d.month}</td>
       <td class="px-3 sm:px-4 py-3 text-right font-semibold whitespace-nowrap" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
       <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);">${d.count || 0} คน</td>
-      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--emerald);">${reachCount} คน</td>
-      <td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--charcoal-soft);">฿${fmt(perPerson)}</td>
+      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--emerald);">${usageCount != null ? usageCount + " คน" : "-"}</td>
+      <td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--charcoal-soft);">${perPerson != null ? "฿" + fmt(perPerson) : "-"}</td>
     </tr>`;
   }).join("");
   document.getElementById('tableTotal').textContent = `฿${fmt(total)}`;
   const baseCount = data[0]?.count || 0;
-  const baseReach = baseCount * 2;
-  const standardPerPerson = data.length
-    ? (data[data.length - 1].count ? data[data.length - 1].amount / (data[data.length - 1].count * 2) : 0)
-    : 0;
+  const totalUsageCount = data.reduce((s, d) => s + (d.usageCount || 0), 0);
+  const overallPerPerson = totalUsageCount ? total / totalUsageCount : null;
   document.getElementById('tableTotalMembers').textContent = `${baseCount} คน`;
-  document.getElementById('tableTotalFriends').textContent = `${baseReach} คน`;
-  document.getElementById('tableTotalPerPerson').textContent = baseReach ? `฿${fmt(standardPerPerson)}` : "-";
+  document.getElementById('tableTotalFriends').textContent = totalUsageCount ? `${totalUsageCount} คน` : "-";
+  document.getElementById('tableTotalPerPerson').textContent = overallPerPerson != null ? `฿${fmt(overallPerPerson)}` : "-";
 
   // Notes (moved outside the table, below it)
   const notesEl = document.getElementById('tableNotes');
@@ -579,9 +577,17 @@ async function loadData() {
       return d;
     });
 
-    render(withNotes, true);
+    // ดึงจำนวนการใช้งานจริงรายเดือนจากข้อมูล booking มาแทนที่คอลัมน์ "จำนวนผู้ใช้งาน"
+    const usageStats = extractUsageStats(parseCSV(usageCsvText));
+    const usageCountByMonth = {};
+    if (usageStats) {
+      usageStats.months.forEach(m => { usageCountByMonth[m.label] = m.uses; });
+    }
+    const withUsage = withNotes.map(d => ({ ...d, usageCount: usageCountByMonth[d.month] }));
+
+    render(withUsage, true);
     renderMeetingRoom(extractMeetingRoomExpenses(rows));
-    renderUsageStats(extractUsageStats(parseCSV(usageCsvText)));
+    renderUsageStats(usageStats);
   } catch (err) {
     render(FALLBACK_DATA, false);
   } finally {
