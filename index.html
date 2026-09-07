@@ -290,20 +290,21 @@ function extractMonthlyExpenses(rows) {
   return results;
 }
 
-// ค้นหาบล็อก "จองห้องประชุม" (ฝังอยู่ในแท็บเดือนที่มีการจอง เช่น ส.ค. 69) แล้วดึงมาแค่ วันที่ + จำนวนเงิน
-// รูปแบบที่เจอจริง: [ , "จองห้องประชุม", ..., "วันที่จอง" ]  ตามด้วยแถวข้อมูล
-//                   [ , <ชื่อห้อง/สถานที่>, Account, CreditCard, Price, Paid, <วันที่ใช้งาน>, <เวลา>, <วันที่จอง> ]
+// แท็บ "MeetingRoom" แยกเป็นบล็อกตามเดือน (มิถุนายน 2569, กรกฎาคม 2569, ...) แต่ละบล็อก
+// มี header row "No. | Transaction Date | Name | Account used Booking | Credit Card | Price | Invoice Number"
+// ตามด้วยแถวข้อมูลที่คอลัมน์ No. เป็นเลขนับ 1,2,3... จนกว่าจะเจอแถวว่าง
 function extractMeetingRoomExpenses(rows) {
   const results = [];
 
   for (let i = 0; i < rows.length; i++) {
     const rowJoined = rows[i].join(" | ");
-    if (!/จองห้องประชุม/.test(rowJoined)) continue;
+    const isHeaderRow = /Transaction Date/i.test(rowJoined) && /Price/i.test(rowJoined);
+    if (!isHeaderRow) continue;
 
     let j = i + 1;
-    while (j < rows.length && (rows[j][1] || "").toString().trim() !== "") {
-      const amountVal = toNumber(rows[j][4]); // คอลัมน์ Price เหมือนตารางสมาชิก
-      const dateVal = (rows[j][6] || "").toString().trim(); // คอลัมน์วันที่ใช้งาน
+    while (j < rows.length && isPositiveInteger(rows[j][0])) {
+      const dateVal = (rows[j][1] || "").toString().trim(); // Transaction Date
+      const amountVal = toNumber(rows[j][5]); // Price
       if (dateVal && !isNaN(amountVal)) {
         results.push({ date: dateVal, amount: amountVal });
       }

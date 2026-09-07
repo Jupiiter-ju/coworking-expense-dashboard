@@ -38,6 +38,11 @@ const MONTH_SHEET_NAMES = [
   "ธ.ค. 69"
 ];
 
+// แท็บค่าใช้ห้องประชุม — แยกเป็นสเปรดชีตเดียวกันแต่คนละแท็บ มีบล็อกแยกตามเดือน
+// (มิถุนายน 2569, กรกฎาคม 2569, ...) พร้อมคอลัมน์ No./Transaction Date/Name/
+// Account used Booking/Credit Card/Price/Invoice Number
+const MEETING_ROOM_SHEET_NAME = "MeetingRoom";
+
 // สเปรดชีตข้อมูลการใช้งาน (booking) — เปิดดูได้แบบสาธารณะ ดึงตรงผ่าน UrlFetchApp
 const USAGE_CSV_URL = "https://docs.google.com/spreadsheets/d/1CvaE43lwSzJtnAbtTV0rr15KEHH6y9v6G5bQpMNTt2U/export?format=csv&gid=0";
 const USAGE_MARKER = "###USAGE###";
@@ -65,6 +70,14 @@ function doGet(e) {
         lines.push(row.map(csvEscapeCell).join(","));
       });
     });
+
+    const meetingRoomSheet = ss.getSheetByName(MEETING_ROOM_SHEET_NAME);
+    if (meetingRoomSheet) {
+      const mrValues = meetingRoomSheet.getDataRange().getValues();
+      mrValues.forEach(function (row) {
+        lines.push(row.map(csvEscapeCell).join(","));
+      });
+    }
 
     lines.push(USAGE_MARKER);
     try {
