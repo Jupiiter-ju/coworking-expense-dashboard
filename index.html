@@ -143,7 +143,6 @@
       <div class="rounded-2xl p-4" style="background:#EAF2EE;">
         <p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--emerald);">จำนวนครั้งที่ใช้งานทั้งหมด</p>
         <p class="text-xl font-bold mt-1" style="color: var(--charcoal);" id="usageTotalCount">-</p>
-        <p class="text-[11px] mt-1" style="color:#8B8578">ไม่นับรายการที่ยกเลิก</p>
       </div>
       <div class="rounded-2xl p-4" style="background:#EAF2EE;">
         <p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--emerald);">ผู้ใช้งานที่ใช้บ่อยที่สุด</p>
@@ -153,7 +152,6 @@
       <div class="rounded-2xl p-4" style="background:#EAF2EE;">
         <p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--emerald);">จำนวนผู้ใช้งานสูงสุดต่อวัน</p>
         <p class="text-xl font-bold mt-1" style="color: var(--charcoal);" id="usageTopDayCount">-</p>
-        <p class="text-[11px] mt-1" style="color:#8B8578" id="usageTopDay">&nbsp;</p>
       </div>
     </div>
 
@@ -208,7 +206,7 @@ const MONTH_MAP = {
 
 // ข้อมูลสำรอง (ล่าสุด ณ ตอนสร้างไฟล์นี้) — ใช้กรณีดึงข้อมูลสดไม่สำเร็จ
 const FALLBACK_DATA = [
-  { month: "มิ.ย. 69", amount: 51039.00, count: 15, note: "รวมค่าสมาชิกรายเดือน + ค่าแรกเข้า" },
+  { month: "มิ.ย. 69", amount: 51039.00, count: 15, note: "รวมค่าสมาชิกรายเดือน + ค่าแรกเข้า 952.30 บาท" },
   { month: "ก.ค. 69", amount: 36754.50, count: 15, note: "" },
   { month: "ส.ค. 69", amount: 36754.50, count: 15, note: "" },
   { month: "ก.ย. 69", amount: 36754.50, count: 15, note: "" }
@@ -405,7 +403,7 @@ function render(data, isLive) {
   totalCard.style.border = "1px solid #123D31";
   totalCard.innerHTML = `
     <p class="text-xs font-semibold uppercase tracking-wide" style="color:#C9A96B">รวมทั้งหมด</p>
-    <p class="text-xl sm:text-2xl font-bold mt-1" style="color:#F6F4EE">฿${fmt(total)}</p>
+    <p class="text-lg font-bold mt-1 whitespace-nowrap" style="color:#F6F4EE">฿${fmt(total)}</p>
     <p class="text-[11px] mt-1" style="color:#B9C4BC">${data.length} เดือน</p>`;
   summaryEl.appendChild(totalCard);
 
@@ -501,7 +499,6 @@ function renderUsageStats(stats) {
   document.getElementById('usageTopUser').textContent = stats.topUser || "-";
   document.getElementById('usageTopUserCount').textContent = stats.topUser ? `${stats.topUserCount} ครั้ง` : " ";
   document.getElementById('usageTopDayCount').textContent = `${stats.topDayCount.toLocaleString('th-TH')} คน`;
-  document.getElementById('usageTopDay').textContent = stats.topDay || " ";
 
   const tbody = document.getElementById('usageMonthBody');
   tbody.innerHTML = stats.months.map(m => `
@@ -574,7 +571,7 @@ async function loadData() {
     // แนบหมายเหตุเดือน มิ.ย. หากยอดสูงผิดปกติ (รวมค่าแรกเข้า)
     const withNotes = extracted.map((d, i) => {
       if (i === 0 && d.amount > extracted[1]?.amount * 1.1) {
-        return { ...d, note: "รวมค่าสมาชิกรายเดือน + ค่าแรกเข้า" };
+        return { ...d, note: "รวมค่าสมาชิกรายเดือน + ค่าแรกเข้า 952.30 บาท" };
       }
       return d;
     });
