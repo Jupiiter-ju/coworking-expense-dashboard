@@ -203,6 +203,8 @@ const MONTH_MAP = {
   "05": "พ.ค.", "06": "มิ.ย.", "07": "ก.ค.", "08": "ส.ค.",
   "09": "ก.ย.", "10": "ต.ค.", "11": "พ.ย.", "12": "ธ.ค."
 };
+// ทิศทางกลับ: ชื่อย่อเดือนไทย -> เลขเดือน ใช้อ่านหัวข้อ "รอบบิล" รูปแบบใหม่ (ดู extractMonthlyExpenses)
+const MONTH_ABBR_TO_NUM = Object.fromEntries(Object.entries(MONTH_MAP).map(([num, abbr]) => [abbr, num]));
 
 // ข้อมูลสำรอง (ล่าสุด ณ ตอนสร้างไฟล์นี้) — ใช้กรณีดึงข้อมูลสดไม่สำเร็จ
 const FALLBACK_DATA = [
@@ -246,17 +248,29 @@ function isPositiveInteger(str) {
   return /^[0-9]+$/.test(s);
 }
 
-// ค้นหาบล็อก "รอบบิล 01/XX/YYYY" แล้วรวมค่าคอลัมน์ E (Price) ของแต่ละแถวข้อมูลในบล็อกนั้น
+// ค้นหาบล็อก "รอบบิล" แล้วรวมค่าคอลัมน์ E (Price) ของแต่ละแถวข้อมูลในบล็อกนั้น
+// รองรับ 2 รูปแบบหัวข้อ:
+//   เดิม:  "รอบบิล 01/06/2569"
+//   ใหม่:  "รอบบิล 15 มิ.ย. - 14 ก.ค.2569" (ใช้เดือนแรกของรอบบิลกับปีท้ายบรรทัดเป็นตัวกำหนดเดือน)
 function extractMonthlyExpenses(rows) {
   const results = [];
   let pendingMonthKey = null;
 
   for (let i = 0; i < rows.length; i++) {
     const rowJoined = rows[i].join(" | ");
-    const billMatch = rowJoined.match(/01\/(\d{2})\/(\d{4})/);
-    if (billMatch && /รอบบิล/.test(rowJoined)) {
-      pendingMonthKey = billMatch[1] + billMatch[2];
-      continue;
+    if (/รอบบิล/.test(rowJoined)) {
+      const billMatch = rowJoined.match(/01\/(\d{2})\/(\d{4})/);
+      if (billMatch) {
+        pendingMonthKey = billMatch[1] + billMatch[2];
+        continue;
+      }
+      const monthNameMatch = rowJoined.match(/รอบบิล\s*\d+\s*([฀-๿.]+)/);
+      const yearMatches = rowJoined.match(/\d{4}/g);
+      const monthDigits = monthNameMatch && MONTH_ABBR_TO_NUM[monthNameMatch[1]];
+      if (monthDigits && yearMatches) {
+        pendingMonthKey = monthDigits + yearMatches[yearMatches.length - 1];
+        continue;
+      }
     }
 
     const isHeaderRow = rowJoined.includes("Name") && rowJoined.includes("Price");
