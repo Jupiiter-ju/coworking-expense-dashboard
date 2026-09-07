@@ -112,24 +112,26 @@
   <!-- Meeting Room Rental -->
   <div id="meetingRoomSection" class="card bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6" hidden>
     <h2 class="text-lg font-bold mb-4" style="color: var(--charcoal);">ค่าใช้ห้องประชุม</h2>
-    <div class="overflow-x-auto">
-      <div class="inline-block rounded-xl overflow-hidden align-top" style="border: 1px solid var(--hairline);">
-        <table class="text-sm">
-          <thead style="background: var(--charcoal);">
-            <tr>
-              <th class="px-4 sm:px-6 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">วันที่</th>
-              <th class="px-4 sm:px-6 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนเงิน (บาท)</th>
-            </tr>
-          </thead>
-          <tbody id="meetingRoomBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
-          <tfoot>
-            <tr class="font-bold" style="background: #EFEADA;">
-              <td class="px-4 sm:px-6 py-3" style="color: var(--charcoal);">รวมทั้งหมด</td>
-              <td id="meetingRoomTotal" class="px-4 sm:px-6 py-3 text-right whitespace-nowrap" style="color: var(--emerald-deep);"></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+    <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
+      <table class="min-w-full text-sm table-fixed">
+        <colgroup>
+          <col style="width:50%">
+          <col style="width:50%">
+        </colgroup>
+        <thead style="background: var(--charcoal);">
+          <tr>
+            <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">วันที่</th>
+            <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนเงิน (บาท)</th>
+          </tr>
+        </thead>
+        <tbody id="meetingRoomBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
+        <tfoot>
+          <tr class="font-bold" style="background: #EFEADA;">
+            <td class="px-3 sm:px-4 py-3" style="color: var(--charcoal);">รวมทั้งหมด</td>
+            <td id="meetingRoomTotal" class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald-deep);"></td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   </div>
 
@@ -479,8 +481,8 @@ function renderMeetingRoom(data) {
   const tbody = document.getElementById('meetingRoomBody');
   tbody.innerHTML = data.map(d => `
     <tr class="hover:bg-[#F6F4EE]">
-      <td class="px-4 sm:px-6 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal-soft);">${d.date}</td>
-      <td class="px-4 sm:px-6 py-3 text-right font-semibold whitespace-nowrap" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
+      <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal-soft);">${d.date}</td>
+      <td class="px-3 sm:px-4 py-3 text-right font-semibold whitespace-nowrap" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
     </tr>`).join("");
 
   const total = data.reduce((s, d) => s + d.amount, 0);
