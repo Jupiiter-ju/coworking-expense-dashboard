@@ -161,15 +161,13 @@
     <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
       <table class="min-w-full text-sm table-fixed">
         <colgroup>
-          <col style="width:34%">
-          <col style="width:33%">
-          <col style="width:33%">
+          <col style="width:50%">
+          <col style="width:50%">
         </colgroup>
         <thead style="background: var(--charcoal);">
           <tr>
             <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">เดือน</th>
             <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนผู้ใช้งาน</th>
-            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนครั้งที่ใช้งาน</th>
           </tr>
         </thead>
         <tbody id="usageMonthBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
@@ -514,7 +512,6 @@ function renderUsageStats(stats) {
   tbody.innerHTML = stats.months.map(m => `
     <tr class="hover:bg-[#F6F4EE]">
       <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal-soft);">${m.label}</td>
-      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);">${m.users} คน</td>
       <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--emerald);">${m.uses} ครั้ง</td>
     </tr>`).join("");
 }
