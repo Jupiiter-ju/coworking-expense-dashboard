@@ -108,7 +108,7 @@
   <div id="tableNotes" class="mb-6"></div>
 
   <p class="text-xs text-center" id="footNote" style="color: #8B8578;">
-    ข้อมูลนี้ดึงมาจา Google Sheets โดยอัตโนมัติเมื่อเปิดไฟล์ — หากชีตถูกตั้งค่าเป็นส่วนตัว ระบบจะแสดงข้อมูลล่าสุดที่มีการบันทึกไว้แทน
+    ข้อมูลนี้ดึงมาจาก Google Sheets โดยอัตโนมัติเมื่อเปิดไฟล์ — หากชีตถูกตั้งค่าเป็นส่วนตัว ระบบจะแสดงข้อมูลล่าสุดที่มีการบันทึกไว้แทน
   </p>
 
 </div>
@@ -117,6 +117,18 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRynAPo__dwu0xNzSrYswKO-8Scm3yJCB-HXadUEj32N2cCZ9WSramZFxHcP8AwQvYM8mjHiCK8vHeZ/pub?output=csv";
 // Google Sheets ไม่ส่ง CORS header ให้กับลิงก์ CSV เลย จึงต้องดึงผ่าน proxy ที่เติม header ให้แทน
 const PROXIED_CSV_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(CSV_URL);
+
+// Google Apps Script Web App ของเราเอง (server-side proxy) — เสถียรกว่า proxy สาธารณะ
+// ดู apps-script/Code.gs สำหรับโค้ดที่ต้อง deploy แล้วนำ URL (ลงท้าย /exec) มาใส่ตรงนี้
+const APPS_SCRIPT_CSV_URL = "https://script.google.com/macros/s/AKfycbz8GXU62PnzvefN50K__0OSapAa55jusEBZOjRNhCrcpvfinO74YVFMdTmpohh1ktW2bA/exec";
+
+const PROXY_TIMEOUT_MS = 6000;
+
+function fetchWithTimeout(url, options = {}, timeoutMs = PROXY_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
 
 // โทนสีเดียวกันไล่เฉด (เขียวมรกต) เพื่อความมั่นคง สม่ำเสมอ ดูภูมิฐาน
 const PALETTE = ["#1F5C4A", "#2C7A61", "#3D9678", "#5FAF92", "#1F5C4A", "#2C7A61", "#3D9678"];
@@ -169,7 +181,7 @@ function isPositiveInteger(str) {
   return /^[0-9]+$/.test(s);
 }
 
-// ค้นหาบล็อก "รอบบิล 01/XX/YYYY" แล้วรวมค่ารอลัมน์ E (Price) ของแต่ละแถวข้อมูลในบล็อกนั้น
+// ค้นหาบล็อก "รอบบิล 01/XX/YYYY" แล้วรวมค่าคอลัมน์ E (Price) ของแต่ละแถวข้อมูลในบล็อกนั้น
 function extractMonthlyExpenses(rows) {
   const results = [];
   let pendingMonthKey = null;
@@ -288,30 +300,34 @@ function render(data, isLive) {
 }
 
 async function fetchCsvText() {
-  const attempts = [
+  const attempts = [];
+
+  // 0) Apps Script Web App ของเราเอง — เสถียรที่สุดเพราะเราคุมเอง ไม่ผ่าน proxy สาธารณะ
+  if (APPS_SCRIPT_CSV_URL) {
+    attempts.push({ url: APPS_SCRIPT_CSV_URL, type: "text" });
+  }
+
+  attempts.push(
     // 1) codetabs — คืนค่า CSV ตรงๆ พร้อม CORS header, ไม่จำกัดโดเมนที่เรียกใช้
     { url: "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(CSV_URL), type: "text" },
     // 2) allorigins (raw) — บางครั้งไม่เสถียร ใช้เป็นตัวสำรอง
     { url: PROXIED_CSV_URL, type: "text" },
     // 3) allorigins (json wrapper) — ตัวสำรองสุดท้าย
     { url: "https://api.allorigins.win/get?url=" + encodeURIComponent(CSV_URL), type: "json" }
-  ];
+  );
 
   for (const attempt of attempts) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(attempt.url, { cache: "no-store", signal: controller.signal });
-      clearTimeout(timeoutId);
+      const res = await fetchWithTimeout(attempt.url, { cache: "no-store" });
       if (!res.ok) continue;
       if (attempt.type === "json") {
         const data = await res.json();
         if (data && data.contents) return data.contents;
       } else {
         const text = await res.text();
-        if (text && text.trim().length > 0) return text;
+        if (text && text.trim().length > 0 && !text.startsWith("ERROR:")) return text;
       }
-    } catch (e) { /* ลองตัวถัดเป */ }
+    } catch (e) { /* ลองตัวถัดไป (timeout หรือ network error) */ }
   }
   throw new Error("ไม่สามารถดึงข้อมูลผ่าน proxy ใดๆ ได้เลย");
 }
