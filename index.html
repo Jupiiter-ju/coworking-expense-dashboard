@@ -141,6 +141,47 @@
     </div>
   </div>
 
+  <!-- Co-Working Usage / Booking Stats -->
+  <div id="usageSection" class="card bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6" hidden>
+    <h2 class="text-lg font-bold mb-4" style="color: var(--charcoal);">สรุปการใช้งาน Co-Working (Booking)</h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-5">
+      <div class="rounded-2xl p-4" style="background:#EAF2EE;">
+        <p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--emerald);">จำนวนครั้งที่ใช้งานทั้งหมด</p>
+        <p class="text-xl font-bold mt-1" style="color: var(--charcoal);" id="usageTotalCount">-</p>
+        <p class="text-[11px] mt-1" style="color:#8B8578">ไม่นับรายการที่ยกเลิก</p>
+      </div>
+      <div class="rounded-2xl p-4" style="background:#EAF2EE;">
+        <p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--emerald);">ผู้ใช้งานที่ใช้บ่อยที่สุด</p>
+        <p class="text-xl font-bold mt-1" style="color: var(--charcoal);" id="usageTopUser">-</p>
+        <p class="text-[11px] mt-1" style="color:#8B8578" id="usageTopUserCount">&nbsp;</p>
+      </div>
+      <div class="rounded-2xl p-4" style="background:#EAF2EE;">
+        <p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--emerald);">จำนวนผู้ใช้งานสูงสุดต่อวัน</p>
+        <p class="text-xl font-bold mt-1" style="color: var(--charcoal);" id="usageTopDayCount">-</p>
+        <p class="text-[11px] mt-1" style="color:#8B8578" id="usageTopDay">&nbsp;</p>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
+      <table class="min-w-full text-sm table-fixed">
+        <colgroup>
+          <col style="width:34%">
+          <col style="width:33%">
+          <col style="width:33%">
+        </colgroup>
+        <thead style="background: var(--charcoal);">
+          <tr>
+            <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">เดือน</th>
+            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนผู้ใช้งาน</th>
+            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนครั้งที่ใช้งาน</th>
+          </tr>
+        </thead>
+        <tbody id="usageMonthBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
+      </table>
+    </div>
+  </div>
+
   <p class="text-xs text-center" id="footNote" style="color: #8B8578;">
     ข้อมูลนี้ดึงมาจาก Google Sheets โดยอัตโนมัติเมื่อเปิดไฟล์ — หากชีตถูกตั้งค่าเป็นส่วนตัว ระบบจะแสดงข้อมูลล่าสุดที่มีการบันทึกไว้แทน
   </p>
@@ -276,6 +317,85 @@ function extractMeetingRoomExpenses(rows) {
   return results;
 }
 
+const USAGE_MONTH_NAMES = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+function formatUsageMonth(ym) {
+  const parts = ym.split("-");
+  const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (!y || !m) return ym;
+  const buddhistShort = (y + 543) % 100;
+  return (USAGE_MONTH_NAMES[m] || m) + " " + buddhistShort;
+}
+
+// สรุปข้อมูลการใช้งาน (booking) จาก CSV ระบบจองห้อง — เฉพาะรายการ status = confirmed
+// คอลัมน์อ้างอิงด้วยชื่อ header เพื่อไม่ผูกกับลำดับคอลัมน์ตายตัว
+function extractUsageStats(rows) {
+  if (!rows.length) return null;
+  // หาแถว header จริง (ข้ามบรรทัดว่างที่อาจหลงเหลือจากการตัด marker) แทนที่จะสมมติว่าเป็น rows[0] เสมอ
+  let headerRowIdx = -1, dateCol = -1, nameCol = -1, statusCol = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const header = rows[i].map(function (h) { return (h || "").toString().trim(); });
+    const dc = header.indexOf("date"), nc = header.indexOf("name"), sc = header.indexOf("status");
+    if (dc !== -1 && nc !== -1 && sc !== -1) {
+      headerRowIdx = i; dateCol = dc; nameCol = nc; statusCol = sc;
+      break;
+    }
+  }
+  if (headerRowIdx === -1) return null;
+
+  const confirmed = rows.slice(headerRowIdx + 1).filter(function (r) {
+    return r[dateCol] && (r[statusCol] || "").toString().trim().toLowerCase() === "confirmed";
+  });
+  if (confirmed.length === 0) return null;
+
+  const monthMap = {};
+  confirmed.forEach(function (r) {
+    const d = (r[dateCol] || "").toString().trim();
+    const m = d.slice(0, 7);
+    if (!m) return;
+    if (!monthMap[m]) monthMap[m] = { uses: 0, users: new Set() };
+    monthMap[m].uses++;
+    const nm = (r[nameCol] || "").toString().trim();
+    if (nm) monthMap[m].users.add(nm);
+  });
+  const months = Object.keys(monthMap).sort().map(function (m) {
+    return { key: m, label: formatUsageMonth(m), uses: monthMap[m].uses, users: monthMap[m].users.size };
+  });
+
+  const nameCounts = {};
+  confirmed.forEach(function (r) {
+    const nm = (r[nameCol] || "").toString().trim();
+    if (!nm) return;
+    nameCounts[nm] = (nameCounts[nm] || 0) + 1;
+  });
+  let topUser = null, topUserCount = 0;
+  Object.keys(nameCounts).forEach(function (nm) {
+    if (nameCounts[nm] > topUserCount) { topUserCount = nameCounts[nm]; topUser = nm; }
+  });
+
+  const dayUsers = {}; // นับ "จำนวนผู้ใช้งาน" ต่อวัน แบบไม่ซ้ำคน (distinct name)
+  confirmed.forEach(function (r) {
+    const d = (r[dateCol] || "").toString().trim();
+    const nm = (r[nameCol] || "").toString().trim();
+    if (!d || !nm) return;
+    if (!dayUsers[d]) dayUsers[d] = new Set();
+    dayUsers[d].add(nm);
+  });
+  let topDay = null, topDayCount = 0;
+  Object.keys(dayUsers).forEach(function (d) {
+    if (dayUsers[d].size > topDayCount) { topDayCount = dayUsers[d].size; topDay = d; }
+  });
+
+  return {
+    months: months,
+    totalUses: confirmed.length,
+    topUser: topUser,
+    topUserCount: topUserCount,
+    topDay: topDay,
+    topDayCount: topDayCount
+  };
+}
+
 function fmt(n) {
   return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -382,6 +502,29 @@ function renderMeetingRoom(data) {
   document.getElementById('meetingRoomTotal').textContent = `฿${fmt(total)}`;
 }
 
+function renderUsageStats(stats) {
+  const section = document.getElementById('usageSection');
+  if (!stats) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  document.getElementById('usageTotalCount').textContent = `${stats.totalUses.toLocaleString('th-TH')} ครั้ง`;
+  document.getElementById('usageTopUser').textContent = stats.topUser || "-";
+  document.getElementById('usageTopUserCount').textContent = stats.topUser ? `${stats.topUserCount} ครั้ง` : " ";
+  document.getElementById('usageTopDayCount').textContent = `${stats.topDayCount.toLocaleString('th-TH')} คน`;
+  document.getElementById('usageTopDay').textContent = stats.topDay || " ";
+
+  const tbody = document.getElementById('usageMonthBody');
+  tbody.innerHTML = stats.months.map(m => `
+    <tr class="hover:bg-[#F6F4EE]">
+      <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal-soft);">${m.label}</td>
+      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);">${m.users} คน</td>
+      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--emerald);">${m.uses} ครั้ง</td>
+    </tr>`).join("");
+}
+
 async function fetchCsvText() {
   const attempts = [];
 
@@ -425,7 +568,11 @@ async function loadData() {
 
   try {
     const csvText = await fetchCsvText();
-    const rows = parseCSV(csvText);
+    const usageMarkerIdx = csvText.indexOf("###USAGE###");
+    const mainCsvText = usageMarkerIdx === -1 ? csvText : csvText.slice(0, usageMarkerIdx);
+    const usageCsvText = usageMarkerIdx === -1 ? "" : csvText.slice(usageMarkerIdx + "###USAGE###".length);
+
+    const rows = parseCSV(mainCsvText);
     const allExtracted = extractMonthlyExpenses(rows);
 
     // ตัดเดือนที่ยังไม่ถึง (ชีตเตรียมแท็บ + ราคาไว้ล่วงหน้า แต่ยังไม่เกิดขึ้นจริง) ออก
@@ -448,6 +595,7 @@ async function loadData() {
 
     render(withNotes, true);
     renderMeetingRoom(extractMeetingRoomExpenses(rows));
+    renderUsageStats(extractUsageStats(parseCSV(usageCsvText)));
   } catch (err) {
     render(FALLBACK_DATA, false);
   } finally {
