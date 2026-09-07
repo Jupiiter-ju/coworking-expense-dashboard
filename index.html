@@ -299,7 +299,10 @@ async function fetchCsvText() {
 
   for (const attempt of attempts) {
     try {
-      const res = await fetch(attempt.url, { cache: "no-store" });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(attempt.url, { cache: "no-store", signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!res.ok) continue;
       if (attempt.type === "json") {
         const data = await res.json();
