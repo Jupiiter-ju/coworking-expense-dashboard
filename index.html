@@ -74,9 +74,6 @@
   <div class="card bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
       <h2 class="text-lg font-bold" style="color: var(--charcoal);">รายละเอียดค่าใช้จ่ายรายเดือน</h2>
-      <p class="text-xs px-3 py-1.5 rounded-full inline-block w-fit" style="background:#EAF2EE; color: var(--emerald-deep);">
-        สมาชิก 15 คน · จำนวนผู้ใช้งานสูงสุด 30 คน
-      </p>
     </div>
     <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
       <table class="min-w-full text-sm table-fixed">
@@ -412,14 +409,12 @@ function render(data, isLive) {
 
   data.forEach((d, idx) => {
     const color = PALETTE[idx % PALETTE.length];
-    const reach = (d.count || 0) * 2;
     const card = document.createElement('div');
     card.className = "card month-accent bg-white rounded-2xl p-4 sm:p-5";
     card.style.borderLeftColor = color;
     card.innerHTML = `
       <p class="text-xs font-semibold uppercase tracking-wide" style="color:${color}">${d.month}</p>
       <p class="text-lg sm:text-xl font-bold mt-1" style="color: var(--charcoal);">฿${fmt(d.amount)}</p>
-      <p class="text-[11px] mt-2 font-medium" style="color: var(--emerald);">สมาชิก ${d.count || 0} คน · จำนวนผู้ใช้งาน ${reach} คน</p>
       ${d.note ? `<p class="text-[11px] mt-1" style="color:#8B8578">${d.note}</p>` : `<p class="text-[11px] mt-1">&nbsp;</p>`}`;
     summaryEl.appendChild(card);
   });
