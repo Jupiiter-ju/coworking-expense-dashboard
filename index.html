@@ -199,6 +199,8 @@ function extractMonthlyExpenses(rows) {
       const monthDigits = pendingMonthKey.slice(0, 2);
       const yearDigits = pendingMonthKey.slice(2);
       const monthLabel = (MONTH_MAP[monthDigits] || monthDigits) + " " + (parseInt(yearDigits, 10) - 2500);
+      const billMonth = parseInt(monthDigits, 10);
+      const billYear = parseInt(yearDigits, 10) - 543; // พ.ศ. -> ค.ศ.
 
       let sum = 0, count = 0, j = i + 1;
       while (j < rows.length && isPositiveInteger(rows[j][0])) {
@@ -207,7 +209,7 @@ function extractMonthlyExpenses(rows) {
         j++;
       }
       if (count > 0) {
-        results.push({ month: monthLabel, amount: sum, count: count, note: "" });
+        results.push({ month: monthLabel, amount: sum, count: count, note: "", billMonth, billYear });
       }
       pendingMonthKey = null;
       i = j - 1;
@@ -343,7 +345,15 @@ async function loadData() {
   try {
     const csvText = await fetchCsvText();
     const rows = parseCSV(csvText);
-    const extracted = extractMonthlyExpenses(rows);
+    const allExtracted = extractMonthlyExpenses(rows);
+
+    // ตัดเดือนที่ยังไม่ถึง (ชีตเตรียมแท็บ + ราคาไว้ล่วงหน้า แต่ยังไม่เกิดขึ้นจริง) ออก
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+    const extracted = allExtracted.filter(d =>
+      d.billYear < curYear || (d.billYear === curYear && d.billMonth <= curMonth)
+    );
 
     if (extracted.length === 0) throw new Error("No matching data found");
 
