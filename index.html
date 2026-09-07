@@ -115,6 +115,32 @@
 
   <div id="tableNotes" class="mb-6"></div>
 
+  <!-- Meeting Room Rental -->
+  <div id="meetingRoomSection" class="card bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6" hidden>
+    <h2 class="text-lg font-bold mb-4" style="color: var(--charcoal);">ค่าใช้ห้องประชุม</h2>
+    <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
+      <table class="min-w-full text-sm table-fixed">
+        <colgroup>
+          <col style="width:50%">
+          <col style="width:50%">
+        </colgroup>
+        <thead style="background: var(--charcoal);">
+          <tr>
+            <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">วันที่</th>
+            <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนเงิน (บาท)</th>
+          </tr>
+        </thead>
+        <tbody id="meetingRoomBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
+        <tfoot>
+          <tr class="font-bold" style="background: #EFEADA;">
+            <td class="px-3 sm:px-4 py-3" style="color: var(--charcoal);">รวมทั้งหมด</td>
+            <td id="meetingRoomTotal" class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald-deep);"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
   <p class="text-xs text-center" id="footNote" style="color: #8B8578;">
     ข้อมูลนี้ดึงมาจาก Google Sheets โดยอัตโนมัติเมื่อเปิดไฟล์ — หากชีตถูกตั้งค่าเป็นส่วนตัว ระบบจะแสดงข้อมูลล่าสุดที่มีการบันทึกไว้แทน
   </p>
@@ -226,6 +252,30 @@ function extractMonthlyExpenses(rows) {
   return results;
 }
 
+// ค้นหาบล็อก "จองห้องประชุม" (ฝังอยู่ในแท็บเดือนที่มีการจอง เช่น ส.ค. 69) แล้วดึงมาแค่ วันที่ + จำนวนเงิน
+// รูปแบบที่เจอจริง: [ , "จองห้องประชุม", ..., "วันที่จอง" ]  ตามด้วยแถวข้อมูล
+//                   [ , <ชื่อห้อง/สถานที่>, Account, CreditCard, Price, Paid, <วันที่ใช้งาน>, <เวลา>, <วันที่จอง> ]
+function extractMeetingRoomExpenses(rows) {
+  const results = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const rowJoined = rows[i].join(" | ");
+    if (!/จองห้องประชุม/.test(rowJoined)) continue;
+
+    let j = i + 1;
+    while (j < rows.length && (rows[j][1] || "").toString().trim() !== "") {
+      const amountVal = toNumber(rows[j][4]); // คอลัมน์ Price เหมือนตารางสมาชิก
+      const dateVal = (rows[j][6] || "").toString().trim(); // คอลัมน์วันที่ใช้งาน
+      if (dateVal && !isNaN(amountVal)) {
+        results.push({ date: dateVal, amount: amountVal });
+      }
+      j++;
+    }
+    i = j - 1;
+  }
+  return results;
+}
+
 function fmt(n) {
   return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -313,6 +363,25 @@ function render(data, isLive) {
   }
 }
 
+function renderMeetingRoom(data) {
+  const section = document.getElementById('meetingRoomSection');
+  if (!data || data.length === 0) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  const tbody = document.getElementById('meetingRoomBody');
+  tbody.innerHTML = data.map(d => `
+    <tr class="hover:bg-[#F6F4EE]">
+      <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal-soft);">${d.date}</td>
+      <td class="px-3 sm:px-4 py-3 text-right font-semibold whitespace-nowrap" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
+    </tr>`).join("");
+
+  const total = data.reduce((s, d) => s + d.amount, 0);
+  document.getElementById('meetingRoomTotal').textContent = `฿${fmt(total)}`;
+}
+
 async function fetchCsvText() {
   const attempts = [];
 
@@ -378,6 +447,7 @@ async function loadData() {
     });
 
     render(withNotes, true);
+    renderMeetingRoom(extractMeetingRoomExpenses(rows));
   } catch (err) {
     render(FALLBACK_DATA, false);
   } finally {
