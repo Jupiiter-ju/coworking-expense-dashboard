@@ -84,10 +84,10 @@
           <tr>
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">เดือน</th>
             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">จำนวนเงิน (บาท)</th>
-            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">ราคาต่อหัว (บาท)</th>
             <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">จำนวนสมาชิก</th>
             <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">เชิญเพื่อนได้</th>
             <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">รวมใช้งานได้</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">ราคาต่อหัว (บาท)</th>
           </tr>
         </thead>
         <tbody id="tableBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
@@ -95,10 +95,10 @@
           <tr class="font-bold" style="background: #EFEADA;">
             <td class="px-4 py-3" style="color: var(--charcoal);">รวมทั้งหมด</td>
             <td id="tableTotal" class="px-4 py-3 text-right" style="color: var(--emerald-deep);"></td>
-            <td id="tableTotalPerPerson" class="px-4 py-3 text-right" style="color: var(--emerald-deep);"></td>
             <td id="tableTotalMembers" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
             <td id="tableTotalFriends" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
             <td id="tableTotalReach" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
+            <td id="tableTotalPerPerson" class="px-4 py-3 text-right" style="color: var(--emerald-deep);"></td>
           </tr>
         </tfoot>
       </table>
@@ -255,24 +255,28 @@ function render(data, isLive) {
   // Table
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = data.map(d => {
-    const perPerson = d.count ? d.amount / d.count : 0;
+    const reachCount = (d.count || 0) * 2;
+    const perPerson = reachCount ? d.amount / reachCount : 0; // หารด้วยจำนวนที่ใช้งานได้จริง (สมาชิก + เพื่อนที่เชิญ)
     return `
     <tr class="hover:bg-[#F6F4EE]">
       <td class="px-4 py-3 font-medium" style="color: var(--charcoal-soft);">${d.month}</td>
       <td class="px-4 py-3 text-right font-semibold" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
-      <td class="px-4 py-3 text-right" style="color: var(--charcoal-soft);">฿${fmt(perPerson)}</td>
       <td class="px-4 py-3 text-center" style="color: var(--charcoal);">${d.count || 0} คน</td>
       <td class="px-4 py-3 text-center" style="color: var(--charcoal-soft);">${d.count || 0} คน</td>
-      <td class="px-4 py-3 text-center" style="color: var(--emerald);">${(d.count || 0) * 2} คน</td>
+      <td class="px-4 py-3 text-center" style="color: var(--emerald);">${reachCount} คน</td>
+      <td class="px-4 py-3 text-right" style="color: var(--charcoal-soft);">฿${fmt(perPerson)}</td>
     </tr>`;
   }).join("");
   document.getElementById('tableTotal').textContent = `฿${fmt(total)}`;
   const baseCount = data[0]?.count || 0;
-  const standardPerPerson = data.length ? (data[data.length - 1].count ? data[data.length - 1].amount / data[data.length - 1].count : 0) : 0;
-  document.getElementById('tableTotalPerPerson').textContent = baseCount ? `฿${fmt(standardPerPerson)}` : "-";
+  const baseReach = baseCount * 2;
+  const standardPerPerson = data.length
+    ? (data[data.length - 1].count ? data[data.length - 1].amount / (data[data.length - 1].count * 2) : 0)
+    : 0;
   document.getElementById('tableTotalMembers').textContent = `${baseCount} คน`;
   document.getElementById('tableTotalFriends').textContent = `${baseCount} คน`;
-  document.getElementById('tableTotalReach').textContent = `${baseCount * 2} คน`;
+  document.getElementById('tableTotalReach').textContent = `${baseReach} คน`;
+  document.getElementById('tableTotalPerPerson').textContent = baseReach ? `฿${fmt(standardPerPerson)}` : "-";
 
   // Notes (moved outside the table, below it)
   const notesEl = document.getElementById('tableNotes');
