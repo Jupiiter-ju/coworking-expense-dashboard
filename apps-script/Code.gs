@@ -65,6 +65,10 @@ function doGet(e) {
       const sheet = ss.getSheetByName(name);
       if (!sheet) return; // แท็บยังไม่ถูกสร้าง ข้ามไป
 
+      // แนบชื่อแท็บจริงไว้เป็น marker แทนการให้ฝั่ง client เดาเดือนจากข้อความหัวตาราง
+      // (ข้อความ "รอบบิล ..." ในชีตเปลี่ยนรูปแบบไปแล้วหลายครั้ง แต่ชื่อแท็บคงที่)
+      lines.push("###MONTH:" + name + "###");
+
       const values = sheet.getDataRange().getValues();
       values.forEach(function (row) {
         lines.push(row.map(csvEscapeCell).join(","));

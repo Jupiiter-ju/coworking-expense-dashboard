@@ -248,52 +248,53 @@ function isPositiveInteger(str) {
   return /^[0-9]+$/.test(s);
 }
 
-// ค้นหาบล็อก "รอบบิล" แล้วรวมค่าคอลัมน์ E (Price) ของแต่ละแถวข้อมูลในบล็อกนั้น
-// รองรับ 2 รูปแบบหัวข้อ:
-//   เดิม:  "รอบบิล 01/06/2569"
-//   ใหม่:  "รอบบิล 15 มิ.ย. - 14 ก.ค.2569" (ใช้เดือนแรกของรอบบิลกับปีท้ายบรรทัดเป็นตัวกำหนดเดือน)
+// ชื่อแท็บเดือนรูปแบบ "มิ.ย. 69" -> { billMonth, billYear (ค.ศ.) }
+// ใช้ชื่อแท็บเป็นตัวกำหนดเดือนโดยตรง แทนการอ่านข้อความหัวตาราง "รอบบิล ..." ในชีต
+// (ข้อความหัวตารางเปลี่ยนรูปแบบไปแล้วหลายครั้ง แต่ชื่อแท็บคงที่)
+function parseMonthTabName(tabName) {
+  const parts = tabName.trim().split(/\s+/); // ["มิ.ย.", "69"]
+  const monthDigits = MONTH_ABBR_TO_NUM[parts[0]];
+  const yy = parseInt(parts[1], 10);
+  if (!monthDigits || isNaN(yy)) return null;
+  const buddhistYear = 2500 + yy;
+  return { billMonth: parseInt(monthDigits, 10), billYear: buddhistYear - 543 };
+}
+
+// Apps Script แนบ marker "###MONTH:<ชื่อแท็บ>###" ไว้ก่อนข้อมูลของแต่ละแท็บเดือน (ดู apps-script/Code.gs)
+// แบ่งข้อมูลเป็นช่วงตาม marker แล้วรวมค่าคอลัมน์ E (Price) ของแถวที่คอลัมน์ No. เป็นเลขนับ 1,2,3...
 function extractMonthlyExpenses(rows) {
+  const segments = [];
+  let currentMonth = null;
+  let currentRows = [];
+
+  rows.forEach(row => {
+    const markerMatch = (row[0] || "").toString().match(/^###MONTH:(.+)###$/);
+    if (markerMatch) {
+      if (currentMonth) segments.push({ month: currentMonth, rows: currentRows });
+      currentMonth = markerMatch[1];
+      currentRows = [];
+    } else if (currentMonth) {
+      currentRows.push(row);
+    }
+  });
+  if (currentMonth) segments.push({ month: currentMonth, rows: currentRows });
+
   const results = [];
-  let pendingMonthKey = null;
+  segments.forEach(seg => {
+    const parsed = parseMonthTabName(seg.month);
+    if (!parsed) return;
 
-  for (let i = 0; i < rows.length; i++) {
-    const rowJoined = rows[i].join(" | ");
-    if (/รอบบิล/.test(rowJoined)) {
-      const billMatch = rowJoined.match(/01\/(\d{2})\/(\d{4})/);
-      if (billMatch) {
-        pendingMonthKey = billMatch[1] + billMatch[2];
-        continue;
-      }
-      const monthNameMatch = rowJoined.match(/รอบบิล\s*\d+\s*([฀-๿.]+)/);
-      const yearMatches = rowJoined.match(/\d{4}/g);
-      const monthDigits = monthNameMatch && MONTH_ABBR_TO_NUM[monthNameMatch[1]];
-      if (monthDigits && yearMatches) {
-        pendingMonthKey = monthDigits + yearMatches[yearMatches.length - 1];
-        continue;
-      }
-    }
-
-    const isHeaderRow = rowJoined.includes("Name") && rowJoined.includes("Price");
-    if (isHeaderRow && pendingMonthKey) {
-      const monthDigits = pendingMonthKey.slice(0, 2);
-      const yearDigits = pendingMonthKey.slice(2);
-      const monthLabel = (MONTH_MAP[monthDigits] || monthDigits) + " " + (parseInt(yearDigits, 10) - 2500);
-      const billMonth = parseInt(monthDigits, 10);
-      const billYear = parseInt(yearDigits, 10) - 543; // พ.ศ. -> ค.ศ.
-
-      let sum = 0, count = 0, j = i + 1;
-      while (j < rows.length && isPositiveInteger(rows[j][0])) {
-        const priceVal = toNumber(rows[j][4]); // column E = index 4
+    let sum = 0, count = 0;
+    seg.rows.forEach(r => {
+      if (isPositiveInteger(r[0])) {
+        const priceVal = toNumber(r[4]); // column E = index 4
         if (!isNaN(priceVal)) { sum += priceVal; count++; }
-        j++;
       }
-      if (count > 0) {
-        results.push({ month: monthLabel, amount: sum, count: count, note: "", billMonth, billYear });
-      }
-      pendingMonthKey = null;
-      i = j - 1;
+    });
+    if (count > 0) {
+      results.push({ month: seg.month, amount: sum, count: count, note: "", billMonth: parsed.billMonth, billYear: parsed.billYear });
     }
-  }
+  });
   return results;
 }
 
