@@ -79,26 +79,34 @@
       </p>
     </div>
     <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
-      <table class="min-w-full text-sm">
+      <table class="min-w-full text-sm table-fixed">
+        <colgroup>
+          <col style="width:16%">
+          <col style="width:18%">
+          <col style="width:14%">
+          <col style="width:16%">
+          <col style="width:16%">
+          <col style="width:20%">
+        </colgroup>
         <thead style="background: var(--charcoal);">
           <tr>
-            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">เดือน</th>
-            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">จำนวนเงิน (บาท)</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">จำนวนสมาชิก</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">เชิญเพื่อนได้</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">รวมใช้งานได้</th>
-            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">ราคาต่อหัว (บาท)</th>
+            <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">เดือน</th>
+            <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">จำนวนเงิน<br class="sm:hidden">(บาท)</th>
+            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">จำนวนสมาชิก</th>
+            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">เชิญเพื่อนได้</th>
+            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">รวมใช้งานได้</th>
+            <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">ราคาต่อหัว<br class="sm:hidden">(บาท)</th>
           </tr>
         </thead>
         <tbody id="tableBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
         <tfoot>
           <tr class="font-bold" style="background: #EFEADA;">
-            <td class="px-4 py-3" style="color: var(--charcoal);">รวมทั้งหมด</td>
-            <td id="tableTotal" class="px-4 py-3 text-right" style="color: var(--emerald-deep);"></td>
-            <td id="tableTotalMembers" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
-            <td id="tableTotalFriends" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
-            <td id="tableTotalReach" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
-            <td id="tableTotalPerPerson" class="px-4 py-3 text-right" style="color: var(--emerald-deep);"></td>
+            <td class="px-3 sm:px-4 py-3" style="color: var(--charcoal);">รวมทั้งหมด</td>
+            <td id="tableTotal" class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald-deep);"></td>
+            <td id="tableTotalMembers" class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);"></td>
+            <td id="tableTotalFriends" class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);"></td>
+            <td id="tableTotalReach" class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);"></td>
+            <td id="tableTotalPerPerson" class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald-deep);"></td>
           </tr>
         </tfoot>
       </table>
@@ -259,12 +267,12 @@ function render(data, isLive) {
     const perPerson = reachCount ? d.amount / reachCount : 0; // หารด้วยจำนวนที่ใช้งานได้จริง (สมาชิก + เพื่อนที่เชิญ)
     return `
     <tr class="hover:bg-[#F6F4EE]">
-      <td class="px-4 py-3 font-medium" style="color: var(--charcoal-soft);">${d.month}</td>
-      <td class="px-4 py-3 text-right font-semibold" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
-      <td class="px-4 py-3 text-center" style="color: var(--charcoal);">${d.count || 0} คน</td>
-      <td class="px-4 py-3 text-center" style="color: var(--charcoal-soft);">${d.count || 0} คน</td>
-      <td class="px-4 py-3 text-center" style="color: var(--emerald);">${reachCount} คน</td>
-      <td class="px-4 py-3 text-right" style="color: var(--charcoal-soft);">฿${fmt(perPerson)}</td>
+      <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal-soft);">${d.month}</td>
+      <td class="px-3 sm:px-4 py-3 text-right font-semibold whitespace-nowrap" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
+      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);">${d.count || 0} คน</td>
+      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal-soft);">${d.count || 0} คน</td>
+      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--emerald);">${reachCount} คน</td>
+      <td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--charcoal-soft);">฿${fmt(perPerson)}</td>
     </tr>`;
   }).join("");
   document.getElementById('tableTotal').textContent = `฿${fmt(total)}`;
