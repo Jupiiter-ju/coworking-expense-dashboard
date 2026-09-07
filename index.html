@@ -81,20 +81,18 @@
     <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
       <table class="min-w-full text-sm table-fixed">
         <colgroup>
+          <col style="width:18%">
+          <col style="width:20%">
           <col style="width:16%">
           <col style="width:18%">
-          <col style="width:14%">
-          <col style="width:16%">
-          <col style="width:16%">
-          <col style="width:20%">
+          <col style="width:28%">
         </colgroup>
         <thead style="background: var(--charcoal);">
           <tr>
             <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">เดือน</th>
             <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">จำนวนเงิน<br class="sm:hidden">(บาท)</th>
             <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">จำนวนสมาชิก</th>
-            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">เชิญเพื่อนได้</th>
-            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">รวมใช้งานได้</th>
+            <th class="px-3 sm:px-4 py-3 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">จำนวนผู้ใช้งาน</th>
             <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide leading-tight" style="color: var(--gold-soft);">ราคาต่อหัว<br class="sm:hidden">(บาท)</th>
           </tr>
         </thead>
@@ -105,7 +103,6 @@
             <td id="tableTotal" class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald-deep);"></td>
             <td id="tableTotalMembers" class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);"></td>
             <td id="tableTotalFriends" class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);"></td>
-            <td id="tableTotalReach" class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);"></td>
             <td id="tableTotalPerPerson" class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald-deep);"></td>
           </tr>
         </tfoot>
@@ -440,7 +437,6 @@ function render(data, isLive) {
       <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal-soft);">${d.month}</td>
       <td class="px-3 sm:px-4 py-3 text-right font-semibold whitespace-nowrap" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
       <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal);">${d.count || 0} คน</td>
-      <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--charcoal-soft);">${d.count || 0} คน</td>
       <td class="px-3 sm:px-4 py-3 text-center whitespace-nowrap" style="color: var(--emerald);">${reachCount} คน</td>
       <td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--charcoal-soft);">฿${fmt(perPerson)}</td>
     </tr>`;
@@ -452,8 +448,7 @@ function render(data, isLive) {
     ? (data[data.length - 1].count ? data[data.length - 1].amount / (data[data.length - 1].count * 2) : 0)
     : 0;
   document.getElementById('tableTotalMembers').textContent = `${baseCount} คน`;
-  document.getElementById('tableTotalFriends').textContent = `${baseCount} คน`;
-  document.getElementById('tableTotalReach').textContent = `${baseReach} คน`;
+  document.getElementById('tableTotalFriends').textContent = `${baseReach} คน`;
   document.getElementById('tableTotalPerPerson').textContent = baseReach ? `฿${fmt(standardPerPerson)}` : "-";
 
   // Notes (moved outside the table, below it)
