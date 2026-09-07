@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>รายงานค่าใช้จ่าย Co-Working Space</title>
+<script>
+  // ปิดข้อความเตือนที่ไม่จำเป็นใน Console (เช่น Tailwind CDN warning)
+  const _origWarn = console.warn;
+  console.warn = function (...args) {
+    const msg = args.join(" ");
+    if (msg.includes("cdn.tailwindcss.com")) return;
+    _origWarn.apply(console, args);
+  };
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --charcoal: #22281F;
+    --charcoal-soft: #3A4033;
+    --emerald: #1F5C4A;
+    --emerald-deep: #123D31;
+    --gold: #A8823C;
+    --gold-soft: #C9A96B;
+    --ivory: #F6F4EE;
+    --hairline: #E4E0D4;
+  }
+  * { font-family: 'Sarabun', sans-serif; }
+  body { background: var(--ivory); }
+  .card { transition: transform .2s ease, box-shadow .2s ease; border: 1px solid var(--hairline); }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -12px rgba(34,40,31,0.18); }
+  .pulse-dot { animation: pulse 1.6s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(31,92,74,.5); }
+    70% { box-shadow: 0 0 0 8px rgba(31,92,74,0); }
+    100% { box-shadow: 0 0 0 0 rgba(31,92,74,0); }
+  }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .rule-gold { background: linear-gradient(90deg, var(--gold), transparent); }
+  .month-accent { border-left: 3px solid var(--emerald); }
+</style>
+</head>
+<body class="min-h-screen" style="color: var(--charcoal);">
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-3">
+    <div>
+      <p class="text-[11px] font-semibold uppercase tracking-[0.2em]" style="color: var(--gold);">Expense Report</p>
+      <h1 class="text-2xl sm:text-3xl font-bold mt-1" style="color: var(--charcoal);">รายงานค่าใช้จ่าย Co-Working Space</h1>
+      <p class="text-sm mt-1" style="color: var(--charcoal-soft);">สรุปค่าใช้จ่ายรายเดือน ดึงข้อมูลจาก Google Sheets โดยตรง</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div id="statusBadge" class="flex items-center gap-2 bg-white border rounded-full pl-2 pr-4 py-1.5 shadow-sm" style="border-color: var(--hairline);">
+        <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-gray-300"></span>
+        <span id="statusText" class="text-xs font-medium text-gray-500">กำลังเชื่อมต่อ...</span>
+      </div>
+      <button onclick="loadData()" id="refreshBtn" class="flex items-center gap-2 bg-white border hover:bg-gray-50 rounded-full px-4 py-1.5 shadow-sm text-sm font-medium" style="border-color: var(--hairline); color: var(--charcoal-soft);">
+        <svg id="refreshIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        รีเฟรช
+      </button>
+    </div>
+  </div>
+  <div class="h-[2px] rule-gold rounded-full mb-8"></div>
+
+  <!-- Summary Cards -->
+  <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 mb-8"></div>
+
+  <!-- Table -->
+  <div class="card bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+      <h2 class="text-lg font-bold" style="color: var(--charcoal);">รายละเอียดค่าใช้จ่ายรายเดือน</h2>
+      <p class="text-xs px-3 py-1.5 rounded-full inline-block w-fit" style="background:#EAF2EE; color: var(--emerald-deep);">
+        สมาชิก 15 คน · เชิญเพื่อนได้คนละ 1 ท่าน → ใช้งานได้จริงสูงสุด 30 คน
+      </p>
+    </div>
+    <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
+      <table class="min-w-full text-sm">
+        <thead style="background: var(--charcoal);">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">เดือน</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">จำนวนเงิน (บาท)</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">ราคาต่อหัว (บาท)</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">จำนวนสมาชิก</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">เชิญเพื่อนได้</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style="color: var(--gold-soft);">รวมใช้งานได้</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
+        <tfoot>
+          <tr class="font-bold" style="background: #EFEADA;">
+            <td class="px-4 py-3" style="color: var(--charcoal);">รวมทั้งหมด</td>
+            <td id="tableTotal" class="px-4 py-3 text-right" style="color: var(--emerald-deep);"></td>
+            <td id="tableTotalPerPerson" class="px-4 py-3 text-right" style="color: var(--emerald-deep);"></td>
+            <td id="tableTotalMembers" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
+            <td id="tableTotalFriends" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
+            <td id="tableTotalReach" class="px-4 py-3 text-center" style="color: var(--charcoal);"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div id="tableNotes" class="mb-6"></div>
+
+  <p class="text-xs text-center" id="footNote" style="color: #8B8578;">
+    ข้อมูลนี้ดึงมาจา Google Sheets โดยอัตโนมัติเมื่อเปิดไฟล์ — หากชีตถูกตั้งค่าเป็นส่วนตัว ระบบจะแสดงข้อมูลล่าสุดที่มีการบันทึกไว้แทน
+  </p>
+
+</div>
+
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRynAPo__dwu0xNzSrYswKO-8Scm3yJCB-HXadUEj32N2cCZ9WSramZFxHcP8AwQvYM8mjHiCK8vHeZ/pub?output=csv";
+// Google Sheets ไม่ส่ง CORS header ให้กับลิงก์ CSV เลย จึงต้องดึงผ่าน proxy ที่เติม header ให้แทน
+const PROXIED_CSV_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(CSV_URL);
+
+// โทนสีเดียวกันไล่เฉด (เขียวมรกต) เพื่อความมั่นคง สม่ำเสมอ ดูภูมิฐาน
+const PALETTE = ["#1F5C4A", "#2C7A61", "#3D9678", "#5FAF92", "#1F5C4A", "#2C7A61", "#3D9678"];
+
+const MONTH_MAP = {
+  "01": "ม.ค.", "02": "ก.พ.", "03": "มี.ค.", "04": "เม.ย.",
+  "05": "พ.ค.", "06": "มิ.ย.", "07": "ก.ค.", "08": "ส.ค.",
+  "09": "ก.ย.", "10": "ต.ค.", "11": "พ.ย.", "12": "ธ.ค."
+};
+
+// ข้อมูลสำรอง (ล่าสุด ณ ตอนสร้างไฟล์นี้) — ใช้กรณีดึงข้อมูลสดไม่สำเร็จ
+const FALLBACK_DATA = [
+  { month: "มิ.ย. 69", amount: 51039.00, count: 15, note: "รวมค่าสมาชิกรายเดือน + ค่าแรกเข้า" },
+  { month: "ก.ค. 69", amount: 36754.50, count: 15, note: "" },
+  { month: "ส.ค. 69", amount: 36754.50, count: 15, note: "" },
+  { month: "ก.ย. 69", amount: 36754.50, count: 15, note: "" }
+];
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cell = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { cell += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { cell += c; }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(cell); cell = ""; }
+      else if (c === '\r') { /* skip */ }
+      else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ""; }
+      else { cell += c; }
+    }
+  }
+  if (cell.length || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function toNumber(str) {
+  if (!str) return NaN;
+  const cleaned = String(str).replace(/[^\d.\-]/g, "");
+  if (cleaned === "" || cleaned === "-" || cleaned === ".") return NaN;
+  return parseFloat(cleaned);
+}
+
+function isPositiveInteger(str) {
+  if (str === undefined) return false;
+  const s = String(str).trim();
+  return /^[0-9]+$/.test(s);
+}
+
+// ค้นหาบล็อก "รอบบิล 01/XX/YYYY" แล้วรวมค่ารอลัมน์ E (Price) ของแต่ละแถวข้อมูลในบล็อกนั้น
+function extractMonthlyExpenses(rows) {
+  const results = [];
+  let pendingMonthKey = null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const rowJoined = rows[i].join(" | ");
+    const billMatch = rowJoined.match(/01\/(\d{2})\/(\d{4})/);
+    if (billMatch && /รอบบิล/.test(rowJoined)) {
+      pendingMonthKey = billMatch[1] + billMatch[2];
+      continue;
+    }
+
+    const isHeaderRow = rowJoined.includes("Name") && rowJoined.includes("Price");
+    if (isHeaderRow && pendingMonthKey) {
+      const monthDigits = pendingMonthKey.slice(0, 2);
+      const yearDigits = pendingMonthKey.slice(2);
+      const monthLabel = (MONTH_MAP[monthDigits] || monthDigits) + " " + (parseInt(yearDigits, 10) - 2500);
+
+      let sum = 0, count = 0, j = i + 1;
+      while (j < rows.length && isPositiveInteger(rows[j][0])) {
+        const priceVal = toNumber(rows[j][4]); // column E = index 4
+        if (!isNaN(priceVal)) { sum += priceVal; count++; }
+        j++;
+      }
+      if (count > 0) {
+        results.push({ month: monthLabel, amount: sum, count: count, note: "" });
+      }
+      pendingMonthKey = null;
+      i = j - 1;
+    }
+  }
+  return results;
+}
+
+function fmt(n) {
+  return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function render(data, isLive) {
+  // Summary cards
+  const total = data.reduce((s, d) => s + d.amount, 0);
+  const summaryEl = document.getElementById('summaryCards');
+  summaryEl.innerHTML = "";
+
+  const totalCard = document.createElement('div');
+  totalCard.className = "card col-span-2 md:col-span-1 rounded-2xl p-4 sm:p-5";
+  totalCard.style.background = "linear-gradient(135deg, #22281F, #1F5C4A)";
+  totalCard.style.border = "1px solid #123D31";
+  totalCard.innerHTML = `
+    <p class="text-xs font-semibold uppercase tracking-wide" style="color:#C9A96B">รวมทั้งหมด</p>
+    <p class="text-xl sm:text-2xl font-bold mt-1" style="color:#F6F4EE">฿${fmt(total)}</p>
+    <p class="text-[11px] mt-1" style="color:#B9C4BC">${data.length} เดือน</p>`;
+  summaryEl.appendChild(totalCard);
+
+  data.forEach((d, idx) => {
+    const color = PALETTE[idx % PALETTE.length];
+    const reach = (d.count || 0) * 2;
+    const card = document.createElement('div');
+    card.className = "card month-accent bg-white rounded-2xl p-4 sm:p-5";
+    card.style.borderLeftColor = color;
+    card.innerHTML = `
+      <p class="text-xs font-semibold uppercase tracking-wide" style="color:${color}">${d.month}</p>
+      <p class="text-lg sm:text-xl font-bold mt-1" style="color: var(--charcoal);">฿${fmt(d.amount)}</p>
+      <p class="text-[11px] mt-2 font-medium" style="color: var(--emerald);">สมาชิก ${d.count || 0} คน · เชิญเพื่อนได้ ${d.count || 0} คน (รวมใช้งานได้ ${reach} คน)</p>
+      ${d.note ? `<p class="text-[11px] mt-1" style="color:#8B8578">${d.note}</p>` : `<p class="text-[11px] mt-1">&nbsp;</p>`}`;
+    summaryEl.appendChild(card);
+  });
+
+  // Table
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = data.map(d => {
+    const perPerson = d.count ? d.amount / d.count : 0;
+    return `
+    <tr class="hover:bg-[#F6F4EE]">
+      <td class="px-4 py-3 font-medium" style="color: var(--charcoal-soft);">${d.month}</td>
+      <td class="px-4 py-3 text-right font-semibold" style="color: var(--emerald-deep);">฿${fmt(d.amount)}</td>
+      <td class="px-4 py-3 text-right" style="color: var(--charcoal-soft);">฿${fmt(perPerson)}</td>
+      <td class="px-4 py-3 text-center" style="color: var(--charcoal);">${d.count || 0} คน</td>
+      <td class="px-4 py-3 text-center" style="color: var(--charcoal-soft);">${d.count || 0} คน</td>
+      <td class="px-4 py-3 text-center" style="color: var(--emerald);">${(d.count || 0) * 2} คน</td>
+    </tr>`;
+  }).join("");
+  document.getElementById('tableTotal').textContent = `฿${fmt(total)}`;
+  const baseCount = data[0]?.count || 0;
+  const standardPerPerson = data.length ? (data[data.length - 1].count ? data[data.length - 1].amount / data[data.length - 1].count : 0) : 0;
+  document.getElementById('tableTotalPerPerson').textContent = baseCount ? `฿${fmt(standardPerPerson)}` : "-";
+  document.getElementById('tableTotalMembers').textContent = `${baseCount} คน`;
+  document.getElementById('tableTotalFriends').textContent = `${baseCount} คน`;
+  document.getElementById('tableTotalReach').textContent = `${baseCount * 2} คน`;
+
+  // Notes (moved outside the table, below it)
+  const notesEl = document.getElementById('tableNotes');
+  const notedMonths = data.filter(d => d.note);
+  notesEl.innerHTML = notedMonths.length
+    ? `<div class="text-xs space-y-1 px-1">${notedMonths.map(d =>
+        `<p style="color:#8B8578">* <span style="color:var(--charcoal-soft); font-weight:500">${d.month}:</span> ${d.note}</p>`
+      ).join("")}</div>`
+    : "";
+
+  // Status
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  if (isLive) {
+    dot.className = "w-2.5 h-2.5 rounded-full pulse-dot";
+    dot.style.background = "#1F5C4A";
+    text.textContent = "ข้อมูลสด — อัปเดตล่าสุด " + new Date().toLocaleTimeString('th-TH');
+    text.className = "text-xs font-medium";
+    text.style.color = "#1F5C4A";
+  } else {
+    dot.className = "w-2.5 h-2.5 rounded-full";
+    dot.style.background = "#A8823C";
+    text.textContent = "ใช้ข้อมูลที่บันทึกไว้ (ดึงสดไม่สำเร็จ)";
+    text.className = "text-xs font-medium";
+    text.style.color = "#A8823C";
+  }
+}
+
+async function fetchCsvText() {
+  const attempts = [
+    // 1) codetabs — คืนค่า CSV ตรงๆ พร้อม CORS header, ไม่จำกัดโดเมนที่เรียกใช้
+    { url: "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(CSV_URL), type: "text" },
+    // 2) allorigins (raw) — บางครั้งไม่เสถียร ใช้เป็นตัวสำรอง
+    { url: PROXIED_CSV_URL, type: "text" },
+    // 3) allorigins (json wrapper) — ตัวสำรองสุดท้าย
+    { url: "https://api.allorigins.win/get?url=" + encodeURIComponent(CSV_URL), type: "json" }
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const res = await fetch(attempt.url, { cache: "no-store" });
+      if (!res.ok) continue;
+      if (attempt.type === "json") {
+        const data = await res.json();
+        if (data && data.contents) return data.contents;
+      } else {
+        const text = await res.text();
+        if (text && text.trim().length > 0) return text;
+      }
+    } catch (e) { /* ลองตัวถัดเป */ }
+  }
+  throw new Error("ไม่สามารถดึงข้อมูลผ่าน proxy ใดๆ ได้เลย");
+}
+
+async function loadData() {
+  const icon = document.getElementById('refreshIcon');
+  icon.classList.add('spin');
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className = "w-2.5 h-2.5 rounded-full bg-gray-300";
+  text.textContent = "กำลังเชื่อมต่อ...";
+
+  try {
+    const csvText = await fetchCsvText();
+    const rows = parseCSV(csvText);
+    const extracted = extractMonthlyExpenses(rows);
+
+    if (extracted.length === 0) throw new Error("No matching data found");
+
+    // แนบหมายเหตุเดือน มิ.ย. หากยอดสูงผิดปกติ (รวมค่าแรกเข้า)
+    const withNotes = extracted.map((d, i) => {
+      if (i === 0 && d.amount > extracted[1]?.amount * 1.1) {
+        return { ...d, note: "รวมค่าสมาชิกรายเดือน + ค่าแรกเข้า" };
+      }
+      return d;
+    });
+
+    render(withNotes, true);
+  } catch (err) {
+    render(FALLBACK_DATA, false);
+  } finally {
+    icon.classList.remove('spin');
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
