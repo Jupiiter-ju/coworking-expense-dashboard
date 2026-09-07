@@ -1,40 +1,60 @@
 /**
- * Google Apps Script Web App — proxy สำหรับดึง CSV จาก Google Sheets ที่ publish ไว้
- * แล้วส่งกลับให้ index.html โดยไม่ติดปัญหา CORS (เพราะ UrlFetchApp ฝั่ง server
- * ไม่ถูกจำกัดด้วย CORS แบบที่ browser โดนจำกัด)
+ * Google Apps Script Web App — รวมข้อมูลจากทุกแท็บเดือน (มิ.ย.–ธ.ค. 69) ในสเปรดชีต
+ * แล้วส่งกลับเป็น CSV เดียวให้ index.html
  *
- * วิธี deploy:
- * 1. ไปที่ https://script.google.com/ -> New project
- * 2. ลบโค้ดเริ่มต้นทั้งหมด แล้ววางไฟล์นี้แทน
- * 3. กด Deploy -> New deployment
- *    - Select type: Web app
- *    - Execute as: Me
- *    - Who has access: Anyone
- * 4. กด Deploy แล้ว copy "Web app URL" (ลงท้ายด้วย /exec)
- * 5. เอา URL นั้นมาใส่ในตัวแปร APPS_SCRIPT_CSV_URL ใน index.html
+ * ทำไมต้องอ่านตรงจากสเปรดชีต (SpreadsheetApp) แทนการดึง published CSV URL:
+ * สเปรดชีตนี้แยกแต่ละเดือนเป็นคนละแท็บ (sheet) แต่ "Publish to web -> CSV"
+ * export ได้แค่แท็บเดียว (แท็บที่ publish ไว้) เท่านั้น ทำให้เดือน ก.ค./ส.ค./ก.ย. หายไป
+ * การเปิดสเปรดชีตตรงด้วย ID แล้ววนอ่านทุกแท็บ ทำให้ได้ข้อมูลครบทุกเดือน
  *
- * หมายเหตุ: ทุกครั้งที่แก้โค้ดไฟล์นี้ ต้องทำ "New deployment" ใหม่
- * (หรือ Manage deployments -> Edit -> เปลี่ยนเวอร์ชันเป็น New version) ไม่งั้น URL เดิมจะยังใช้โค้ดเก่าอยู่
+ * วิธี deploy / อัปเดต:
+ * 1. ไปที่ https://script.google.com/ -> เปิดโปรเจกต์เดิมที่เคย deploy ไว้
+ * 2. ลบโค้ดเดิมทั้งหมด แล้ววางไฟล์นี้แทน
+ * 3. กด Deploy -> Manage deployments -> (ไอคอนดินสอ) Edit -> Version: "New version" -> Deploy
+ *    (ใช้ deployment เดิม จะได้ URL /exec เดิม ไม่ต้องเปลี่ยนใน index.html)
+ * 4. รอบนี้สคริปต์ต้องขอสิทธิ์เพิ่ม (อ่านสเปรดชีต) — จะมีหน้าจอ Authorize ขึ้นมาอีกรอบ
+ *    เลือกบัญชี jupiiterlegacy@gmail.com -> Advanced -> Go to ... (unsafe) -> Allow
  */
 
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRynAPo__dwu0xNzSrYswKO-8Scm3yJCB-HXadUEj32N2cCZ9WSramZFxHcP8AwQvYM8mjHiCK8vHeZ/pub?output=csv";
+const SPREADSHEET_ID = "1SPe9qvTeXNYExJ6gtGs2G74SE-PnCgeh4WrwfBizyD8";
+
+// ชื่อแท็บเดือนตามลำดับที่อยากให้แสดงผล — เพิ่มเดือนใหม่ต่อท้ายได้เรื่อยๆ ตามที่สร้างแท็บจริง
+const MONTH_SHEET_NAMES = [
+  "มิ.ย. 69",
+  "ก.ค. 69",
+  "ส.ค. 69",
+  "ก.ย. 69",
+  "ต.ค. 69",
+  "พ.ย. 69",
+  "ธ.ค. 69"
+];
+
+function csvEscapeCell(val) {
+  if (val === null || val === undefined) return "";
+  let s = val instanceof Date ? val.toString() : String(val);
+  if (/[",\n\r]/.test(s)) {
+    s = '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
 
 function doGet(e) {
   try {
-    const response = UrlFetchApp.fetch(CSV_URL, {
-      muteHttpExceptions: true,
-      followRedirects: true
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const lines = [];
+
+    MONTH_SHEET_NAMES.forEach(function (name) {
+      const sheet = ss.getSheetByName(name);
+      if (!sheet) return; // แท็บยังไม่ถูกสร้าง ข้ามไป
+
+      const values = sheet.getDataRange().getValues();
+      values.forEach(function (row) {
+        lines.push(row.map(csvEscapeCell).join(","));
+      });
     });
 
-    if (response.getResponseCode() !== 200) {
-      return ContentService
-        .createTextOutput("ERROR: upstream returned " + response.getResponseCode())
-        .setMimeType(ContentService.MimeType.TEXT);
-    }
-
-    return ContentService
-      .createTextOutput(response.getContentText())
-      .setMimeType(ContentService.MimeType.CSV);
+    const csv = lines.join("\n");
+    return ContentService.createTextOutput(csv).setMimeType(ContentService.MimeType.CSV);
   } catch (err) {
     return ContentService
       .createTextOutput("ERROR: " + err.message)
