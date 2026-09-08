@@ -402,8 +402,13 @@ function extractUsageStats(rows) {
   }
   if (headerRowIdx === -1) return null;
 
+  // รายชื่อที่ไม่ใช่ผู้ใช้งานจริง (เช่น พนักงานที่กดจองแทน/บันทึกข้อมูลให้) ตัดออกจากสถิติทั้งหมด
+  const EXCLUDED_USAGE_NAMES = new Set(["พี่กุ้ง", "หยก", "แพทตี้"]);
+
   const confirmed = rows.slice(headerRowIdx + 1).filter(function (r) {
-    return r[dateCol] && (r[statusCol] || "").toString().trim().toLowerCase() === "confirmed";
+    if (!r[dateCol] || (r[statusCol] || "").toString().trim().toLowerCase() !== "confirmed") return false;
+    const nm = (r[nameCol] || "").toString().trim();
+    return !EXCLUDED_USAGE_NAMES.has(nm);
   });
   if (confirmed.length === 0) return null;
 
