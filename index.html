@@ -299,22 +299,35 @@ function extractMonthlyExpenses(rows) {
 }
 
 // แท็บ "MeetingRoom" แยกเป็นบล็อกตามเดือน (มิถุนายน 2569, กรกฎาคม 2569, ...) แต่ละบล็อก
-// มี header row "No. | Transaction Date | Name | Account used Booking | Credit Card | Price | Invoice Number"
-// ตามด้วยแถวข้อมูลที่คอลัมน์ No. เป็นเลขนับ 1,2,3... จนกว่าจะเจอแถวว่าง
+// มีแถวหัวเดือน (เซลล์เดียว เช่น "มิถุนายน 2569") ตามด้วย header row
+// "No. | Transaction Date | Name | Account used Booking | Credit Card | Price | Invoice Number"
+// แล้วตามด้วยแถวข้อมูลที่คอลัมน์ No. เป็นเลขนับ 1,2,3... จนกว่าจะเจอแถวว่าง
+// ตัดเดือนมิถุนายนออก ให้สอดคล้องกับส่วนอื่นของหน้าเว็บที่ไม่นับเดือนนี้แล้ว
 function extractMeetingRoomExpenses(rows) {
   const results = [];
+  let currentMonthLabel = null;
 
   for (let i = 0; i < rows.length; i++) {
+    const nonEmptyCells = rows[i].filter(c => (c || "").toString().trim() !== "");
+    if (nonEmptyCells.length === 1 && /^[฀-๿]+\s+\d{4}$/.test(nonEmptyCells[0].trim())) {
+      currentMonthLabel = nonEmptyCells[0].trim(); // เช่น "มิถุนายน 2569"
+      continue;
+    }
+
     const rowJoined = rows[i].join(" | ");
     const isHeaderRow = /Transaction Date/i.test(rowJoined) && /Price/i.test(rowJoined);
     if (!isHeaderRow) continue;
 
+    const skipMonth = currentMonthLabel && /^มิถุนายน/.test(currentMonthLabel);
+
     let j = i + 1;
     while (j < rows.length && isPositiveInteger(rows[j][0])) {
-      const dateVal = (rows[j][1] || "").toString().trim(); // Transaction Date
-      const amountVal = toNumber(rows[j][5]); // Price
-      if (dateVal && !isNaN(amountVal)) {
-        results.push({ date: dateVal, amount: amountVal });
+      if (!skipMonth) {
+        const dateVal = (rows[j][1] || "").toString().trim(); // Transaction Date
+        const amountVal = toNumber(rows[j][5]); // Price
+        if (dateVal && !isNaN(amountVal)) {
+          results.push({ date: dateVal, amount: amountVal });
+        }
       }
       j++;
     }
