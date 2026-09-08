@@ -336,13 +336,18 @@ function extractMeetingRoomExpenses(rows) {
   return results;
 }
 
-// รอบบิลของแต่ละเดือน ให้ตรงกับรอบบิลในตารางค่าใช้จ่าย (15 ของเดือนก่อน ถึง 14 ของเดือนนั้น)
-// รอบแรกเริ่ม 30 มิ.ย. เพราะเป็นวันแรกที่มีข้อมูลการใช้งานจริงในชีต — ก่อนหน้านั้นไม่นับ (ตัดเดือน มิ.ย. ออก)
-const USAGE_BILLING_CYCLES = [
-  { label: "ก.ค. 69", start: "2026-06-30", end: "2026-07-14" },
-  { label: "ส.ค. 69", start: "2026-07-15", end: "2026-08-14" },
-  { label: "ก.ย. 69", start: "2026-08-15", end: "2026-09-14" }
-];
+const USAGE_MONTH_NAMES = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+function formatUsageMonth(ym) {
+  const parts = ym.split("-");
+  const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (!y || !m) return ym;
+  const buddhistShort = (y + 543) % 100;
+  return (USAGE_MONTH_NAMES[m] || m) + " " + buddhistShort;
+}
+
+// ข้อมูลเดือน มิ.ย. มีน้อยมาก (เริ่มเก็บแค่ปลายเดือน) เลยรวมเข้ากับ ก.ค. แทนที่จะแยกแถว
+const USAGE_MONTH_MERGE = { "2026-06": "2026-07" };
 
 // สรุปข้อมูลการใช้งาน (booking) จาก CSV ระบบจองห้อง — เฉพาะรายการ status = confirmed
 // คอลัมน์อ้างอิงด้วยชื่อ header เพื่อไม่ผูกกับลำดับคอลัมน์ตายตัว
@@ -365,19 +370,20 @@ function extractUsageStats(rows) {
   });
   if (confirmed.length === 0) return null;
 
-  const cycleMap = {};
-  USAGE_BILLING_CYCLES.forEach(function (c) { cycleMap[c.label] = { uses: 0, users: new Set() }; });
+  const monthMap = {};
   confirmed.forEach(function (r) {
     const d = (r[dateCol] || "").toString().trim();
-    const cycle = USAGE_BILLING_CYCLES.find(function (c) { return d >= c.start && d <= c.end; });
-    if (!cycle) return; // นอกช่วงรอบบิลที่กำหนด (เช่น ก่อน 30 มิ.ย.) ไม่นับ
-    cycleMap[cycle.label].uses++;
+    let m = d.slice(0, 7);
+    if (!m) return;
+    m = USAGE_MONTH_MERGE[m] || m;
+    if (!monthMap[m]) monthMap[m] = { uses: 0, users: new Set() };
+    monthMap[m].uses++;
     const nm = (r[nameCol] || "").toString().trim();
-    if (nm) cycleMap[cycle.label].users.add(nm);
+    if (nm) monthMap[m].users.add(nm);
   });
-  const months = USAGE_BILLING_CYCLES
-    .map(function (c) { return { key: c.label, label: c.label, uses: cycleMap[c.label].uses, users: cycleMap[c.label].users.size }; })
-    .filter(function (m) { return m.uses > 0; });
+  const months = Object.keys(monthMap).sort().map(function (m) {
+    return { key: m, label: formatUsageMonth(m), uses: monthMap[m].uses, users: monthMap[m].users.size };
+  });
 
   const nameCounts = {};
   confirmed.forEach(function (r) {
