@@ -59,7 +59,7 @@
         <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-gray-300"></span>
         <span id="statusText" class="text-xs font-medium text-gray-500">กำลังเชื่อมต่อ...</span>
       </div>
-      <button onclick="loadData()" id="refreshBtn" class="flex items-center gap-2 bg-white border hover:bg-gray-50 rounded-full px-4 py-1.5 shadow-sm text-sm font-medium" style="border-color: var(--hairline); color: var(--charcoal-soft);">
+      <button onclick="loadData(true)" id="refreshBtn" class="flex items-center gap-2 bg-white border hover:bg-gray-50 rounded-full px-4 py-1.5 shadow-sm text-sm font-medium" style="border-color: var(--hairline); color: var(--charcoal-soft);">
         <svg id="refreshIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
         รีเฟรช
       </button>
@@ -702,12 +702,15 @@ function toggleMonthlyRanking(safeKey, total) {
   btn.textContent = expanded ? `ดูทั้งหมด (${total} คน)` : "แสดงน้อยลง";
 }
 
-async function fetchCsvText() {
+async function fetchCsvText(forceFresh = false) {
   const attempts = [];
 
   // 0) Apps Script Web App ของเราเอง — เสถียรที่สุดเพราะเราคุมเอง ไม่ผ่าน proxy สาธารณะ
+  // ปกติ Apps Script จะอ่านจากแคชของตัวเอง (อัปเดตอัตโนมัติวันละครั้ง) เร็วกว่ามาก
+  // กด "รีเฟรช" เอง (forceFresh) ถึงจะส่ง ?fresh=1 เพื่อบังคับให้ดึงข้อมูลสดจากชีตจริงๆ
   if (APPS_SCRIPT_CSV_URL) {
-    attempts.push({ url: APPS_SCRIPT_CSV_URL, type: "text" });
+    const url = forceFresh ? APPS_SCRIPT_CSV_URL + "?fresh=1" : APPS_SCRIPT_CSV_URL;
+    attempts.push({ url, type: "text" });
   }
 
   attempts.push(
@@ -735,7 +738,7 @@ async function fetchCsvText() {
   throw new Error("ไม่สามารถดึงข้อมูลผ่าน proxy ใดๆ ได้เลย");
 }
 
-async function loadData() {
+async function loadData(forceFresh = false) {
   const icon = document.getElementById('refreshIcon');
   icon.classList.add('spin');
   const dot = document.getElementById('statusDot');
@@ -744,7 +747,7 @@ async function loadData() {
   text.textContent = "กำลังเชื่อมต่อ...";
 
   try {
-    const csvText = await fetchCsvText();
+    const csvText = await fetchCsvText(forceFresh);
     const usageMarkerIdx = csvText.indexOf("###USAGE###");
     const mainCsvText = usageMarkerIdx === -1 ? csvText : csvText.slice(0, usageMarkerIdx);
     const usageCsvText = usageMarkerIdx === -1 ? "" : csvText.slice(usageMarkerIdx + "###USAGE###".length);
