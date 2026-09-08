@@ -172,6 +172,33 @@
     </div>
   </div>
 
+  <!-- User Details -->
+  <div id="userDetailSection" class="card bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6" hidden>
+    <h2 class="text-lg font-bold mb-4" style="color: var(--charcoal);">รายละเอียดผู้ใช้งาน</h2>
+    <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
+      <table class="min-w-full text-sm table-fixed">
+        <colgroup>
+          <col style="width:12%">
+          <col style="width:38%">
+          <col style="width:30%">
+          <col style="width:20%">
+        </colgroup>
+        <thead style="background: var(--charcoal);">
+          <tr>
+            <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">อันดับ</th>
+            <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">ชื่อ</th>
+            <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">ทีม</th>
+            <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนครั้ง</th>
+          </tr>
+        </thead>
+        <tbody id="userRankingBody" class="divide-y" style="border-color: var(--hairline);"></tbody>
+      </table>
+    </div>
+    <div class="text-center mt-4">
+      <button onclick="toggleUserRanking()" id="userRankingToggleBtn" class="text-xs font-medium px-4 py-1.5 rounded-full border" style="color: var(--emerald-deep); border-color: var(--hairline);">ดูทั้งหมด</button>
+    </div>
+  </div>
+
   <p class="text-xs text-center" id="footNote" style="color: #8B8578;">
     ข้อมูลนี้ดึงมาจาก Google Sheets โดยอัตโนมัติเมื่อเปิดไฟล์ — หากชีตถูกตั้งค่าเป็นส่วนตัว ระบบจะแสดงข้อมูลล่าสุดที่มีการบันทึกไว้แทน
   </p>
@@ -354,12 +381,13 @@ const USAGE_MONTH_MERGE = { "2026-06": "2026-07" };
 function extractUsageStats(rows) {
   if (!rows.length) return null;
   // หาแถว header จริง (ข้ามบรรทัดว่างที่อาจหลงเหลือจากการตัด marker) แทนที่จะสมมติว่าเป็น rows[0] เสมอ
-  let headerRowIdx = -1, dateCol = -1, nameCol = -1, statusCol = -1;
+  let headerRowIdx = -1, dateCol = -1, nameCol = -1, statusCol = -1, teamCol = -1;
   for (let i = 0; i < rows.length; i++) {
     const header = rows[i].map(function (h) { return (h || "").toString().trim(); });
     const dc = header.indexOf("date"), nc = header.indexOf("name"), sc = header.indexOf("status");
     if (dc !== -1 && nc !== -1 && sc !== -1) {
       headerRowIdx = i; dateCol = dc; nameCol = nc; statusCol = sc;
+      teamCol = header.indexOf("team");
       break;
     }
   }
@@ -386,15 +414,23 @@ function extractUsageStats(rows) {
   });
 
   const nameCounts = {};
+  const nameTeam = {};
   confirmed.forEach(function (r) {
     const nm = (r[nameCol] || "").toString().trim();
     if (!nm) return;
     nameCounts[nm] = (nameCounts[nm] || 0) + 1;
+    if (teamCol !== -1 && !nameTeam[nm]) {
+      const team = (r[teamCol] || "").toString().trim();
+      if (team) nameTeam[nm] = team;
+    }
   });
   let topUser = null, topUserCount = 0;
   Object.keys(nameCounts).forEach(function (nm) {
     if (nameCounts[nm] > topUserCount) { topUserCount = nameCounts[nm]; topUser = nm; }
   });
+  const userRanking = Object.keys(nameCounts)
+    .map(function (nm) { return { name: nm, team: nameTeam[nm] || "-", count: nameCounts[nm] }; })
+    .sort(function (a, b) { return b.count - a.count; });
 
   const dayUsers = {}; // นับ "จำนวนผู้ใช้งาน" ต่อวัน แบบไม่ซ้ำคน (distinct name)
   confirmed.forEach(function (r) {
@@ -415,7 +451,8 @@ function extractUsageStats(rows) {
     topUser: topUser,
     topUserCount: topUserCount,
     topDay: topDay,
-    topDayCount: topDayCount
+    topDayCount: topDayCount,
+    userRanking: userRanking
   };
 }
 
@@ -540,6 +577,43 @@ function renderUsageStats(stats) {
     </tr>`).join("");
 }
 
+const USER_RANKING_TOP_N = 10;
+
+function renderUserRanking(stats) {
+  const section = document.getElementById('userDetailSection');
+  if (!stats || !stats.userRanking || stats.userRanking.length === 0) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  const tbody = document.getElementById('userRankingBody');
+  tbody.innerHTML = stats.userRanking.map((u, idx) => `
+    <tr class="hover:bg-[#F6F4EE] user-ranking-row"${idx >= USER_RANKING_TOP_N ? ' hidden' : ''}>
+      <td class="px-3 sm:px-4 py-3 whitespace-nowrap" style="color: var(--charcoal-soft);">${idx + 1}</td>
+      <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal);">${u.name}</td>
+      <td class="px-3 sm:px-4 py-3 whitespace-nowrap" style="color: var(--charcoal-soft);">${u.team}</td>
+      <td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald);">${u.count} ครั้ง</td>
+    </tr>`).join("");
+
+  const total = stats.userRanking.length;
+  const btn = document.getElementById('userRankingToggleBtn');
+  btn.dataset.expanded = "false";
+  btn.textContent = `ดูทั้งหมด (${total} คน)`;
+  btn.hidden = total <= USER_RANKING_TOP_N;
+}
+
+function toggleUserRanking() {
+  const btn = document.getElementById('userRankingToggleBtn');
+  const rows = document.querySelectorAll('#userRankingBody .user-ranking-row');
+  const expanded = btn.dataset.expanded === "true";
+  rows.forEach((row, idx) => {
+    if (idx >= USER_RANKING_TOP_N) row.hidden = expanded;
+  });
+  btn.dataset.expanded = expanded ? "false" : "true";
+  btn.textContent = expanded ? `ดูทั้งหมด (${rows.length} คน)` : "แสดงน้อยลง";
+}
+
 async function fetchCsvText() {
   const attempts = [];
 
@@ -619,6 +693,7 @@ async function loadData() {
     render(withUsage, true);
     renderMeetingRoom(extractMeetingRoomExpenses(rows));
     renderUsageStats(usageStats);
+    renderUserRanking(usageStats);
   } catch (err) {
     render(FALLBACK_DATA, false);
   } finally {
