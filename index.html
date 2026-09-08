@@ -178,15 +178,17 @@
     <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
       <table class="min-w-full text-sm table-fixed">
         <colgroup>
-          <col style="width:12%">
-          <col style="width:38%">
-          <col style="width:30%">
-          <col style="width:20%">
+          <col style="width:10%">
+          <col style="width:28%">
+          <col style="width:24%">
+          <col style="width:22%">
+          <col style="width:16%">
         </colgroup>
         <thead style="background: var(--charcoal);">
           <tr>
             <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">อันดับ</th>
             <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">ชื่อ</th>
+            <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">บริษัท</th>
             <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">ทีม</th>
             <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนครั้ง</th>
           </tr>
@@ -197,6 +199,12 @@
     <div class="text-center mt-4">
       <button onclick="toggleUserRanking()" id="userRankingToggleBtn" class="text-xs font-medium px-4 py-1.5 rounded-full border" style="color: var(--emerald-deep); border-color: var(--hairline);">ดูทั้งหมด</button>
     </div>
+  </div>
+
+  <!-- User Ranking by Month -->
+  <div id="monthlyRankingSection" class="card bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6" hidden>
+    <h2 class="text-lg font-bold mb-4" style="color: var(--charcoal);">อันดับผู้ใช้งานแยกรายเดือน</h2>
+    <div id="monthlyRankingContainer" class="space-y-6"></div>
   </div>
 
   <p class="text-xs text-center" id="footNote" style="color: #8B8578;">
@@ -381,13 +389,14 @@ const USAGE_MONTH_MERGE = { "2026-06": "2026-07" };
 function extractUsageStats(rows) {
   if (!rows.length) return null;
   // หาแถว header จริง (ข้ามบรรทัดว่างที่อาจหลงเหลือจากการตัด marker) แทนที่จะสมมติว่าเป็น rows[0] เสมอ
-  let headerRowIdx = -1, dateCol = -1, nameCol = -1, statusCol = -1, teamCol = -1;
+  let headerRowIdx = -1, dateCol = -1, nameCol = -1, statusCol = -1, teamCol = -1, companyCol = -1;
   for (let i = 0; i < rows.length; i++) {
     const header = rows[i].map(function (h) { return (h || "").toString().trim(); });
     const dc = header.indexOf("date"), nc = header.indexOf("name"), sc = header.indexOf("status");
     if (dc !== -1 && nc !== -1 && sc !== -1) {
       headerRowIdx = i; dateCol = dc; nameCol = nc; statusCol = sc;
       teamCol = header.indexOf("team");
+      companyCol = header.indexOf("company");
       break;
     }
   }
@@ -398,38 +407,49 @@ function extractUsageStats(rows) {
   });
   if (confirmed.length === 0) return null;
 
-  const monthMap = {};
-  confirmed.forEach(function (r) {
-    const d = (r[dateCol] || "").toString().trim();
-    let m = d.slice(0, 7);
-    if (!m) return;
-    m = USAGE_MONTH_MERGE[m] || m;
-    if (!monthMap[m]) monthMap[m] = { uses: 0, users: new Set() };
-    monthMap[m].uses++;
-    const nm = (r[nameCol] || "").toString().trim();
-    if (nm) monthMap[m].users.add(nm);
-  });
-  const months = Object.keys(monthMap).sort().map(function (m) {
-    return { key: m, label: formatUsageMonth(m), uses: monthMap[m].uses, users: monthMap[m].users.size };
-  });
-
+  const monthMap = {}; // monthKey -> { uses, users:Set, counts:{name:n}, team:{name}, company:{name} }
   const nameCounts = {};
   const nameTeam = {};
+  const nameCompany = {};
   confirmed.forEach(function (r) {
     const nm = (r[nameCol] || "").toString().trim();
-    if (!nm) return;
-    nameCounts[nm] = (nameCounts[nm] || 0) + 1;
-    if (teamCol !== -1 && !nameTeam[nm]) {
-      const team = (r[teamCol] || "").toString().trim();
-      if (team) nameTeam[nm] = team;
+    const d = (r[dateCol] || "").toString().trim();
+    let m = d.slice(0, 7);
+    m = USAGE_MONTH_MERGE[m] || m;
+    const team = teamCol !== -1 ? (r[teamCol] || "").toString().trim() : "";
+    const company = companyCol !== -1 ? (r[companyCol] || "").toString().trim() : "";
+
+    if (nm) {
+      nameCounts[nm] = (nameCounts[nm] || 0) + 1;
+      if (team && !nameTeam[nm]) nameTeam[nm] = team;
+      if (company && !nameCompany[nm]) nameCompany[nm] = company;
+    }
+
+    if (!m) return;
+    if (!monthMap[m]) monthMap[m] = { uses: 0, users: new Set(), counts: {}, team: {}, company: {} };
+    monthMap[m].uses++;
+    if (nm) {
+      monthMap[m].users.add(nm);
+      monthMap[m].counts[nm] = (monthMap[m].counts[nm] || 0) + 1;
+      if (team && !monthMap[m].team[nm]) monthMap[m].team[nm] = team;
+      if (company && !monthMap[m].company[nm]) monthMap[m].company[nm] = company;
     }
   });
+
+  const months = Object.keys(monthMap).sort().map(function (m) {
+    const mm = monthMap[m];
+    const ranking = Object.keys(mm.counts)
+      .map(function (nm) { return { name: nm, company: mm.company[nm] || "-", team: mm.team[nm] || "-", count: mm.counts[nm] }; })
+      .sort(function (a, b) { return b.count - a.count; });
+    return { key: m, label: formatUsageMonth(m), uses: mm.uses, users: mm.users.size, ranking: ranking };
+  });
+
   let topUser = null, topUserCount = 0;
   Object.keys(nameCounts).forEach(function (nm) {
     if (nameCounts[nm] > topUserCount) { topUserCount = nameCounts[nm]; topUser = nm; }
   });
   const userRanking = Object.keys(nameCounts)
-    .map(function (nm) { return { name: nm, team: nameTeam[nm] || "-", count: nameCounts[nm] }; })
+    .map(function (nm) { return { name: nm, company: nameCompany[nm] || "-", team: nameTeam[nm] || "-", count: nameCounts[nm] }; })
     .sort(function (a, b) { return b.count - a.count; });
 
   const dayUsers = {}; // นับ "จำนวนผู้ใช้งาน" ต่อวัน แบบไม่ซ้ำคน (distinct name)
@@ -592,6 +612,7 @@ function renderUserRanking(stats) {
     <tr class="hover:bg-[#F6F4EE] user-ranking-row"${idx >= USER_RANKING_TOP_N ? ' hidden' : ''}>
       <td class="px-3 sm:px-4 py-3 whitespace-nowrap" style="color: var(--charcoal-soft);">${idx + 1}</td>
       <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal);">${u.name}</td>
+      <td class="px-3 sm:px-4 py-3 whitespace-nowrap" style="color: var(--charcoal-soft);">${u.company}</td>
       <td class="px-3 sm:px-4 py-3 whitespace-nowrap" style="color: var(--charcoal-soft);">${u.team}</td>
       <td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald);">${u.count} ครั้ง</td>
     </tr>`).join("");
@@ -612,6 +633,68 @@ function toggleUserRanking() {
   });
   btn.dataset.expanded = expanded ? "false" : "true";
   btn.textContent = expanded ? `ดูทั้งหมด (${rows.length} คน)` : "แสดงน้อยลง";
+}
+
+function monthKeySafe(key) {
+  return key.replace(/[^a-zA-Z0-9]/g, "");
+}
+
+function renderMonthlyRanking(stats) {
+  const section = document.getElementById('monthlyRankingSection');
+  const container = document.getElementById('monthlyRankingContainer');
+  if (!stats || !stats.months || stats.months.length === 0) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  container.innerHTML = stats.months.map(m => {
+    const safeKey = monthKeySafe(m.key);
+    const rows = m.ranking.map((u, idx) => `
+      <tr class="hover:bg-[#F6F4EE] monthly-ranking-row-${safeKey}"${idx >= USER_RANKING_TOP_N ? ' hidden' : ''}>
+        <td class="px-3 sm:px-4 py-3 whitespace-nowrap" style="color: var(--charcoal-soft);">${idx + 1}</td>
+        <td class="px-3 sm:px-4 py-3 font-medium whitespace-nowrap" style="color: var(--charcoal);">${u.name}</td>
+        <td class="px-3 sm:px-4 py-3 whitespace-nowrap" style="color: var(--charcoal-soft);">${u.company}</td>
+        <td class="px-3 sm:px-4 py-3 whitespace-nowrap" style="color: var(--charcoal-soft);">${u.team}</td>
+        <td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald);">${u.count} ครั้ง</td>
+      </tr>`).join("");
+    const showToggle = m.ranking.length > USER_RANKING_TOP_N;
+    return `
+    <div>
+      <h3 class="text-sm font-bold mb-2" style="color: var(--emerald-deep);">${m.label}</h3>
+      <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
+        <table class="min-w-full text-sm table-fixed">
+          <colgroup>
+            <col style="width:10%"><col style="width:28%"><col style="width:24%"><col style="width:22%"><col style="width:16%">
+          </colgroup>
+          <thead style="background: var(--charcoal);">
+            <tr>
+              <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">อันดับ</th>
+              <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">ชื่อ</th>
+              <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">บริษัท</th>
+              <th class="px-3 sm:px-4 py-3 text-left text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">ทีม</th>
+              <th class="px-3 sm:px-4 py-3 text-right text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style="color: var(--gold-soft);">จำนวนครั้ง</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y" style="border-color: var(--hairline);">${rows}</tbody>
+        </table>
+      </div>
+      ${showToggle ? `<div class="text-center mt-3">
+        <button onclick="toggleMonthlyRanking('${safeKey}', ${m.ranking.length})" id="monthlyRankingToggleBtn-${safeKey}" class="text-xs font-medium px-4 py-1.5 rounded-full border" style="color: var(--emerald-deep); border-color: var(--hairline);">ดูทั้งหมด (${m.ranking.length} คน)</button>
+      </div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function toggleMonthlyRanking(safeKey, total) {
+  const btn = document.getElementById(`monthlyRankingToggleBtn-${safeKey}`);
+  const rows = document.querySelectorAll(`.monthly-ranking-row-${safeKey}`);
+  const expanded = btn.dataset.expanded === "true";
+  rows.forEach((row, idx) => {
+    if (idx >= USER_RANKING_TOP_N) row.hidden = expanded;
+  });
+  btn.dataset.expanded = expanded ? "false" : "true";
+  btn.textContent = expanded ? `ดูทั้งหมด (${total} คน)` : "แสดงน้อยลง";
 }
 
 async function fetchCsvText() {
@@ -694,6 +777,7 @@ async function loadData() {
     renderMeetingRoom(extractMeetingRoomExpenses(rows));
     renderUsageStats(usageStats);
     renderUserRanking(usageStats);
+    renderMonthlyRanking(usageStats);
   } catch (err) {
     render(FALLBACK_DATA, false);
   } finally {
