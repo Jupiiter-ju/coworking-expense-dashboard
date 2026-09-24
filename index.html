@@ -709,6 +709,12 @@ function renderMonthlyRanking(stats) {
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--hairline);">${rows}</tbody>
+          <tfoot>
+            <tr class="font-bold" style="background: #EFEADA;">
+              <td colspan="4" class="px-3 sm:px-4 py-3" style="color: var(--charcoal);">รวมทั้งหมด (${m.ranking.length} คน)</td>
+              <td class="px-3 sm:px-4 py-3 text-right whitespace-nowrap" style="color: var(--emerald-deep);">${m.ranking.reduce((s, u) => s + u.count, 0)} ครั้ง</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
       ${showToggle ? `<div class="text-center mt-3">
