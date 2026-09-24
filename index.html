@@ -41,6 +41,17 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .rule-gold { background: linear-gradient(90deg, var(--gold), transparent); }
   .month-accent { border-left: 3px solid var(--emerald); }
+  .chip-strip { position: relative; margin: 0 0 14px; }
+  .chip-rail { display: flex; gap: 8px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none; padding: 2px 34px; cursor: grab; }
+  .chip-rail::-webkit-scrollbar { display: none; }
+  .month-chip { flex: 0 0 auto; border: 1px solid var(--hairline); background: var(--ivory); color: var(--charcoal-soft); border-radius: 999px; padding: 7px 16px; font-size: 14px; white-space: nowrap; cursor: pointer; }
+  .month-chip:hover { border-color: var(--emerald); }
+  .month-chip.on { background: var(--emerald); border-color: var(--emerald); color: #fff; font-weight: 600; }
+  .chip-arrow { position: absolute; top: 0; bottom: 0; width: 30px; border: 0; background: #fff; color: var(--emerald); font-size: 22px; line-height: 1; cursor: pointer; z-index: 2; }
+  .chip-arrow:hover { background: var(--ivory); }
+  .chip-arrow.l { left: 0; border-right: 1px solid var(--hairline); border-radius: 8px 0 0 8px; }
+  .chip-arrow.r { right: 0; border-left: 1px solid var(--hairline); border-radius: 0 8px 8px 0; }
+  .chip-arrow[hidden] { display: none; }
 </style>
 </head>
 <body class="min-h-screen" style="color: var(--charcoal);">
@@ -51,7 +62,7 @@
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-3">
     <div>
       <p class="text-[11px] font-semibold uppercase tracking-[0.2em]" style="color: var(--gold);">Expense Report</p>
-      <h1 class="text-2xl sm:text-3xl font-bold mt-1" style="color: var(--charcoal);">รายงานค่าใช้จ่าย Co-Working Space</h1>
+      <h1 class="text-2xl sm:text-3xl font-bold mt-1" style="color: var(--charcoal);">Co-Working Space Report</h1>
       <p class="text-sm mt-1" style="color: var(--charcoal-soft);">สรุปค่าใช้จ่ายรายเดือน ดึงข้อมูลจาก Google Sheets โดยตรง</p>
     </div>
     <div class="flex items-center gap-3">
@@ -204,7 +215,7 @@
   <!-- User Ranking by Month -->
   <div id="monthlyRankingSection" class="card bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6" hidden>
     <h2 class="text-lg font-bold mb-4" style="color: var(--charcoal);">อันดับผู้ใช้งานแยกรายเดือน</h2>
-    <div id="monthlyRankingContainer" class="space-y-6"></div>
+    <div id="monthlyRankingContainer"></div>
   </div>
 
   <p class="text-xs text-center" id="footNote" style="color: #8B8578;">
@@ -223,6 +234,8 @@ const PROXIED_CSV_URL = "https://api.allorigins.win/raw?url=" + encodeURICompone
 const APPS_SCRIPT_CSV_URL = "https://script.google.com/macros/s/AKfycbw9oI6cvYfKsRsigQClDvkoYnmWsEE2BQtjDPlbbsH5I2F2OiftFga5QA_fLi-D6dS7/exec";
 
 const PROXY_TIMEOUT_MS = 6000;
+// Apps Script ตอบช้าได้ 5-20 วินาที (cold start) จึงให้เวลารอมากกว่า proxy สาธารณะ
+const APPS_SCRIPT_TIMEOUT_MS = 30000;
 
 function fetchWithTimeout(url, options = {}, timeoutMs = PROXY_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -653,7 +666,22 @@ function renderMonthlyRanking(stats) {
   }
   section.hidden = false;
 
-  container.innerHTML = stats.months.map(m => {
+  // เรียงจากเดือนล่าสุดไปเก่าสุด และจำเดือนที่เลือกไว้ตอนรีเฟรช
+  const months = stats.months.slice().sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0));
+  const prevKey = container.dataset.selected;
+  const selectedKey = months.some(m => m.key === prevKey) ? prevKey : months[0].key;
+  container.dataset.selected = selectedKey;
+
+  const chips = months.map(m => `
+    <button type="button" class="month-chip${m.key === selectedKey ? ' on' : ''}" data-key="${m.key}" onclick="selectRankingMonth('${monthKeySafe(m.key)}')">${m.label}</button>`).join("");
+  const chipStrip = `
+    <div class="chip-strip">
+      <button type="button" class="chip-arrow l" id="monthChipPrev" aria-label="เดือนที่ใหม่กว่า" hidden onclick="scrollMonthChips(-1)">‹</button>
+      <div class="chip-rail" id="monthChipRail">${chips}</div>
+      <button type="button" class="chip-arrow r" id="monthChipNext" aria-label="เดือนที่เก่ากว่า" onclick="scrollMonthChips(1)">›</button>
+    </div>`;
+
+  const panels = months.map(m => {
     const safeKey = monthKeySafe(m.key);
     const rows = m.ranking.map((u, idx) => `
       <tr class="hover:bg-[#F6F4EE] monthly-ranking-row-${safeKey}"${idx >= USER_RANKING_TOP_N ? ' hidden' : ''}>
@@ -665,8 +693,7 @@ function renderMonthlyRanking(stats) {
       </tr>`).join("");
     const showToggle = m.ranking.length > USER_RANKING_TOP_N;
     return `
-    <div>
-      <h3 class="text-sm font-bold mb-2" style="color: var(--emerald-deep);">${m.label}</h3>
+    <div class="month-panel" data-key="${m.key}" id="monthPanel-${safeKey}"${m.key === selectedKey ? '' : ' hidden'}>
       <div class="overflow-x-auto rounded-xl" style="border: 1px solid var(--hairline);">
         <table class="min-w-full text-sm table-fixed">
           <colgroup>
@@ -689,6 +716,50 @@ function renderMonthlyRanking(stats) {
       </div>` : ""}
     </div>`;
   }).join("");
+
+  container.innerHTML = chipStrip + panels;
+  const rail = document.getElementById('monthChipRail');
+  rail.addEventListener('scroll', updateChipArrows);
+  enableChipDrag(rail);
+  const activeChip = rail.querySelector('.month-chip.on');
+  if (activeChip) rail.scrollLeft = Math.max(0, activeChip.offsetLeft - 40);
+  updateChipArrows();
+}
+
+function selectRankingMonth(safeKey) {
+  const container = document.getElementById('monthlyRankingContainer');
+  document.querySelectorAll('#monthlyRankingContainer .month-panel').forEach(p => {
+    const on = p.id === `monthPanel-${safeKey}`;
+    p.hidden = !on;
+    if (on) container.dataset.selected = p.dataset.key;
+  });
+  document.querySelectorAll('#monthlyRankingContainer .month-chip').forEach(c => {
+    c.classList.toggle('on', monthKeySafe(c.dataset.key) === safeKey);
+  });
+}
+
+function scrollMonthChips(dir) {
+  document.getElementById('monthChipRail').scrollBy({ left: dir * 200, behavior: 'smooth' });
+}
+
+function updateChipArrows() {
+  const rail = document.getElementById('monthChipRail');
+  if (!rail) return;
+  document.getElementById('monthChipPrev').hidden = rail.scrollLeft < 4;
+  document.getElementById('monthChipNext').hidden = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 4;
+}
+
+// ลากเมาส์เพื่อเลื่อนแถวชิป (มือถือเลื่อนด้วยนิ้วได้อยู่แล้ว)
+function enableChipDrag(rail) {
+  let down = false, moved = false, startX = 0, startLeft = 0;
+  rail.addEventListener('mousedown', e => { down = true; moved = false; startX = e.pageX; startLeft = rail.scrollLeft; });
+  window.addEventListener('mouseup', () => { down = false; });
+  rail.addEventListener('mousemove', e => {
+    if (!down) return;
+    if (Math.abs(e.pageX - startX) > 4) moved = true;
+    if (moved) rail.scrollLeft = startLeft - (e.pageX - startX);
+  });
+  rail.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
 }
 
 function toggleMonthlyRanking(safeKey, total) {
@@ -710,7 +781,7 @@ async function fetchCsvText(forceFresh = false) {
   // กด "รีเฟรช" เอง (forceFresh) ถึงจะส่ง ?fresh=1 เพื่อบังคับให้ดึงข้อมูลสดจากชีตจริงๆ
   if (APPS_SCRIPT_CSV_URL) {
     const url = forceFresh ? APPS_SCRIPT_CSV_URL + "?fresh=1" : APPS_SCRIPT_CSV_URL;
-    attempts.push({ url, type: "text" });
+    attempts.push({ url, type: "text", timeout: APPS_SCRIPT_TIMEOUT_MS });
   }
 
   attempts.push(
@@ -724,7 +795,7 @@ async function fetchCsvText(forceFresh = false) {
 
   for (const attempt of attempts) {
     try {
-      const res = await fetchWithTimeout(attempt.url, { cache: "no-store" });
+      const res = await fetchWithTimeout(attempt.url, { cache: "no-store" }, attempt.timeout || PROXY_TIMEOUT_MS);
       if (!res.ok) continue;
       if (attempt.type === "json") {
         const data = await res.json();
